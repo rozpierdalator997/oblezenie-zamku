@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Tablica Graczy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Firebase (wersja "compat" - prostsza składnia, dobra dla początkujących) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- Biblioteka do generowania kodu QR (do wyświetlenia linku, żeby gracze mogli zeskanować) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+  :root{
+    --bg: #14161c;
+    --bg-panel: #1e212b;
+    --bg-panel-raised: #262a36;
+    --line: #333748;
+    --text: #edeef2;
+    --text-dim: #9098a8;
+    --text-faint: #5b6172;
+
+    --p1: #f5a623;
+    --p2: #4a9de0;
+    --p3: #e8583d;
+    --p4: #4caf7d;
+
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    display:flex;
+    justify-content:center;
+    padding: 24px 16px 48px;
+  }
+
+  #app{ width:100%; max-width: 460px; }
+
+  a, button{ font-family: inherit; }
+  button{ cursor:pointer; }
+  button:focus-visible, a:focus-visible{
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  .eyebrow{
+    font-family: var(--font-display);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 0 0 6px;
+  }
+
+  h1{
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: .01em;
+    margin: 0 0 4px;
+  }
+
+  .sub{ color: var(--text-dim); font-size: 14px; margin: 0 0 28px; line-height:1.5; }
+
+  /* ---------- LOBBY: kafelki wyboru gracza ---------- */
+  .slot{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--slot-color, var(--text-faint));
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    text-align:left;
+    transition: transform .12s ease, background .12s ease;
+  }
+  .slot:active{ transform: scale(0.98); }
+  .slot:not([disabled]):hover{ background: var(--bg-panel-raised); }
+
+  .slot-num{
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--slot-color, var(--text));
+    width: 34px;
+    text-align:center;
+    flex-shrink:0;
+  }
+  .slot-body{ flex:1; min-width:0; }
+  .slot-name{ font-weight:600; font-size:15px; }
+  .slot-status{ font-size:12.5px; color: var(--text-dim); margin-top:2px; }
+  .slot-arrow{ color: var(--text-faint); font-size:18px; }
+
+  .lobby-actions{ margin-top: 28px; padding-top:20px; border-top:1px solid var(--line); }
+  .ghost-btn{
+    display:block; width:100%;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 13.5px;
+    font-weight:500;
+    margin-bottom:10px;
+    text-align:center;
+  }
+  .ghost-btn:hover{ border-color: var(--text-faint); color: var(--text); }
+  .ghost-btn.danger:hover{ border-color: var(--p3); color: var(--p3); }
+
+  #qr-box{
+    display:none;
+    background:#fff;
+    padding:16px;
+    border-radius: var(--radius);
+    margin-top:14px;
+    text-align:center;
+  }
+  #qr-box.show{ display:block; }
+  #qr-box p{ color:#222; font-family: var(--font-body); font-size:12px; margin:10px 0 0; word-break: break-all; }
+
+  /* ---------- PLACEHOLDER: PANEL GRACZA ---------- */
+  .player-hero{
+    background: var(--slot-color);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+    margin-bottom: 18px;
+    color: #14161c;
+  }
+  .player-hero .row{ display:flex; justify-content:space-between; align-items:flex-start; }
+  .player-hero .num{ font-family: var(--font-display); font-size:15px; font-weight:600; opacity:.75; letter-spacing:.08em; text-transform:uppercase; }
+  .player-hero .name{ font-family: var(--font-display); font-size: 30px; font-weight:700; margin-top:2px; }
+  .edit-name{ background: rgba(20,22,28,.15); border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; color:#14161c; }
+
+  .placeholder-card{
+    background: var(--bg-panel);
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    text-align:center;
+    color: var(--text-faint);
+    font-size: 14px;
+    line-height:1.6;
+  }
+
+  .panel-footer{ margin-top:24px; padding-top:16px; border-top:1px solid var(--line); text-align:center; }
+  .link-btn{ background:none; border:none; color: var(--text-faint); font-size:13px; text-decoration:underline; }
+  .link-btn:hover{ color: var(--text-dim); }
+
+  .hint{
+    font-size:12.5px;
+    color: var(--text-faint);
+    text-align:center;
+    margin-top: 18px;
+    line-height:1.5;
+  }
+
+  .banner{
+    background:#2a1c1c; border:1px solid var(--p3); color:#f3c9c0;
+    border-radius: var(--radius-sm); padding:14px; font-size:13.5px; line-height:1.5; margin-bottom:20px;
+  }
+  .banner code{ background:rgba(0,0,0,.25); padding:1px 5px; border-radius:4px; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="config-banner" class="banner hidden">
+    ⚠️ Nie uzupełniono jeszcze konfiguracji Firebase. Otwórz plik <code>index.html</code>,
+    znajdź sekcję <code>firebaseConfig</code> na dole strony i wklej tam dane ze swojego
+    projektu Firebase (instrukcja w pliku README.md).
+  </div>
+
+  <!-- ===================== WIDOK: LOBBY ===================== -->
+  <section id="view-lobby" class="hidden">
+    <p class="eyebrow">Dołącz do gry</p>
+    <h1>Wybierz, którym<br>graczem jesteś</h1>
+    <p class="sub">Zajęte miejsca są widoczne dla wszystkich na bieżąco. Jeśli to Twoje miejsce z poprzedniej rozgrywki, dotknij je, żeby wrócić do swojego panelu.</p>
+
+    <div id="slots"></div>
+
+    <div class="lobby-actions">
+      <button class="ghost-btn" id="show-qr-btn">📱 Pokaż kod QR do dołączenia</button>
+      <div id="qr-box"><div id="qr-canvas"></div><p id="qr-url"></p></div>
+
+      <button class="ghost-btn danger" id="new-game-btn" style="margin-top:14px;">🔄 Nowa gra — zwolnij wszystkie miejsca</button>
+    </div>
+
+    <p class="hint">To na razie tylko wybór graczy — właściwy widok gry dojdzie w kolejnym kroku.</p>
+  </section>
+
+  <!-- ===================== WIDOK: PLACEHOLDER PANELU GRACZA ===================== -->
+  <section id="view-player" class="hidden">
+
+    <div class="player-hero" id="hero">
+      <div class="row">
+        <div>
+          <div class="num" id="p-num">GRACZ 1</div>
+          <div class="name" id="p-name">—</div>
+        </div>
+        <button class="edit-name" id="rename-btn">✏️ Zmień imię</button>
+      </div>
+    </div>
+
+    <div class="placeholder-card">
+      Jesteś podpięty/a jako ten gracz. 👋<br>
+      Tutaj pojawi się właściwy panel gry — daj znać, co dokładnie ma się na nim znaleźć.
+    </div>
+
+    <div class="panel-footer">
+      <button class="link-btn" id="back-to-lobby-btn">← Wróć do lobby</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   1) KONFIGURACJA — DOSTOSUJ TUTAJ
+   ============================================================ */
+
+// Wklej tutaj obiekt konfiguracyjny ze swojego projektu Firebase
+// (Firebase Console → Ustawienia projektu → Twoje aplikacje → SDK config)
+const firebaseConfig = {
+  apiKey: "AIzaSyBzgmxYdMvGOtS62Tr8eFDoROwfMEE9L7M",
+  authDomain: "oblezenie-zamku.firebaseapp.com",
+  projectId: "oblezenie-zamku",
+  storageBucket: "oblezenie-zamku.firebasestorage.app",
+  messagingSenderId: "288564292983",
+  appId: "1:288564292983:web:f2ba2f472ea341f1e94572"
+};
+
+const GAME_TITLE = "Tablica Graczy";
+const PLAYER_COLORS = { 1: "#f5a623", 2: "#4a9de0", 3: "#e8583d", 4: "#4caf7d" };
+const PLAYER_COUNT = 4;
+
+/* ============================================================
+   2) LOGIKA APLIKACJI
+   ============================================================ */
+
+document.title = GAME_TITLE;
+
+const isConfigured = !String(firebaseConfig.apiKey).startsWith("WKLEJ_TU");
+if (!isConfigured) {
+  document.getElementById("config-banner").classList.remove("hidden");
+}
+
+let db = null;
+if (isConfigured) {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+}
+
+const el = (id) => document.getElementById(id);
+const viewLobby = el("view-lobby");
+const viewPlayer = el("view-player");
+
+let playersData = {};
+let mySlot = Number(localStorage.getItem("bg_playerSlot")) || null;
+let manualLobby = false;
+
+function showLobby() {
+  viewLobby.classList.remove("hidden");
+  viewPlayer.classList.add("hidden");
+}
+function showPlayerPanel() {
+  viewLobby.classList.add("hidden");
+  viewPlayer.classList.remove("hidden");
+}
+
+function renderLobby() {
+  const wrap = el("slots");
+  wrap.innerHTML = "";
+  for (let n = 1; n <= PLAYER_COUNT; n++) {
+    const p = playersData[n] || { claimed: false, name: "" };
+    const btn = document.createElement("button");
+    btn.className = "slot";
+    btn.style.setProperty("--slot-color", PLAYER_COLORS[n]);
+    btn.innerHTML = `
+      <div class="slot-num">${n}</div>
+      <div class="slot-body">
+        <div class="slot-name">${p.claimed ? escapeHtml(p.name || ("Gracz " + n)) : "Wolne miejsce"}</div>
+        <div class="slot-status">${p.claimed ? "Dotknij, aby wrócić do tego panelu" : "Dotknij, aby dołączyć jako Gracz " + n}</div>
+      </div>
+      <div class="slot-arrow">›</div>
+    `;
+    btn.addEventListener("click", () => joinSlot(n, p));
+    wrap.appendChild(btn);
+  }
+}
+
+async function joinSlot(n, existing) {
+  if (!db) return;
+  const ref = db.collection("players").doc(String(n));
+  if (!existing || !existing.claimed) {
+    const name = prompt("Podaj swoje imię (albo zostaw puste):", "Gracz " + n) || ("Gracz " + n);
+    await ref.set({ claimed: true, name: name }, { merge: true });
+  }
+  localStorage.setItem("bg_playerSlot", String(n));
+  mySlot = n;
+  manualLobby = false;
+  showPlayerPanel();
+}
+
+function renderPlayerPanel() {
+  if (!mySlot) return;
+  const p = playersData[mySlot] || { name: "Gracz " + mySlot };
+  const color = PLAYER_COLORS[mySlot];
+
+  el("hero").style.setProperty("--slot-color", color);
+  el("p-num").textContent = "GRACZ " + mySlot;
+  el("p-name").textContent = p.name || ("Gracz " + mySlot);
+}
+
+async function renamePlayer() {
+  if (!db || !mySlot) return;
+  const current = (playersData[mySlot] && playersData[mySlot].name) || "";
+  const name = prompt("Nowe imię:", current);
+  if (name === null) return;
+  await db.collection("players").doc(String(mySlot)).update({ name: name || ("Gracz " + mySlot) });
+}
+
+async function newGame() {
+  if (!db) return;
+  if (!confirm("To zwolni wszystkie miejsca — każdy będzie musiał dołączyć od nowa. Kontynuować?")) return;
+  const batch = db.batch();
+  for (let n = 1; n <= PLAYER_COUNT; n++) {
+    batch.set(db.collection("players").doc(String(n)), { claimed: false, name: "" });
+  }
+  await batch.commit();
+  localStorage.removeItem("bg_playerSlot");
+  mySlot = null;
+  manualLobby = false;
+  showLobby();
+}
+
+let qrRendered = false;
+function toggleQr() {
+  const box = el("qr-box");
+  box.classList.toggle("show");
+  if (box.classList.contains("show") && !qrRendered) {
+    new QRCode(el("qr-canvas"), { text: window.location.href.split("#")[0], width: 200, height: 200 });
+    el("qr-url").textContent = window.location.href.split("#")[0];
+    qrRendered = true;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function route() {
+  if (manualLobby) { showLobby(); renderLobby(); return; }
+  if (mySlot && playersData[mySlot] && playersData[mySlot].claimed) {
+    showPlayerPanel();
+    renderPlayerPanel();
+  } else {
+    showLobby();
+    renderLobby();
+  }
+}
+
+if (isConfigured) {
+  db.collection("players").onSnapshot((snap) => {
+    snap.forEach((doc) => { playersData[doc.id] = doc.data(); });
+    route();
+  });
+
+  el("show-qr-btn").addEventListener("click", toggleQr);
+  el("new-game-btn").addEventListener("click", newGame);
+  el("rename-btn").addEventListener("click", renamePlayer);
+  el("back-to-lobby-btn").addEventListener("click", () => { manualLobby = true; route(); });
+
+  route();
+} else {
+  showLobby();
+}
+</script>
+</body>
+</html>
