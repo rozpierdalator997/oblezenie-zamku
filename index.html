@@ -324,7 +324,15 @@ const isConfigured = !String(firebaseConfig.apiKey).startsWith("WKLEJ_TU");
 if (!isConfigured) document.getElementById("config-banner").classList.remove("hidden");
 
 let db = null;
-if (isConfigured) { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); }
+if (isConfigured) {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  // Niektóre sieci (zwłaszcza komórkowe) blokują domyślny sposób połączenia
+  // na żywo Firestore. To ustawienie każe automatycznie wykryć i użyć
+  // bardziej kompatybilnej metody, żeby zmiany innych graczy pojawiały się
+  // bez ręcznego odświeżania strony.
+  db.settings({ experimentalAutoDetectLongPolling: true });
+}
 
 const el = (id) => document.getElementById(id);
 const views = ["start", "choose-team", "choose-slot", "waiting", "player"];
@@ -589,12 +597,12 @@ if (isConfigured) {
   db.collection("game").doc("state").onSnapshot((doc) => {
     gameState = doc.exists ? Object.assign({ lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 }, doc.data()) : { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 };
     route();
-  });
+  }, (err) => { console.error("Błąd połączenia (game/state):", err); });
   db.collection("players").onSnapshot((snap) => {
     playersData = {};
     snap.forEach((doc) => { playersData[doc.id] = doc.data(); });
     route();
-  });
+  }, (err) => { console.error("Błąd połączenia (players):", err); });
 
   el("start-btn").addEventListener("click", startLobby);
   el("start-match-btn").addEventListener("click", startMatch);
