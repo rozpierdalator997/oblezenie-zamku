@@ -196,6 +196,7 @@
     <div id="team-grid"></div>
     <button class="ghost-btn" id="show-qr-btn-1" style="margin-top:8px;">📱 Pokaż kod QR do dołączenia</button>
     <div id="qr-box-1"></div>
+    <button class="ghost-btn" id="end-game-btn-1" style="margin-top:8px;color:var(--atak);border-color:var(--atak);">🗑️ Zresetuj rozgrywkę od zera</button>
   </section>
 
   <!-- ===================== 3. WYBÓR "KTÓRYM JESTEŚ GRACZEM" ===================== -->
@@ -438,6 +439,7 @@ if (isConfigured) {
   el("start-btn").addEventListener("click", startLobby);
   el("start-match-btn").addEventListener("click", startMatch);
   el("end-game-btn-w").addEventListener("click", endGame);
+  el("end-game-btn-1").addEventListener("click", endGame);
 
   function setupQr(btnId, boxId) {
     let rendered = false;
