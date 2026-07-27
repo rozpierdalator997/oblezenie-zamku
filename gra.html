@@ -233,6 +233,8 @@ const el = (id) => document.getElementById(id);
 
 let gameState = { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0, mainGateOpen: false, rearGateOpen: false };
 let playersData = {};
+let gameStateLoaded = false;
+let playersLoaded = false;
 let identity = getMyIdentity();
 let pendingAttackType = null; // "brama_glowna" | "brama_tylna" | "zwykly" | null
 
@@ -245,6 +247,7 @@ function attackTypeLabel(type) {
 /* ---------- ochrona dostepu: jesli stan gry nie pasuje, wracamy do lobby ---------- */
 function checkAccessAndRender() {
   if (!isConfigured) return;
+  if (!gameStateLoaded || !playersLoaded) return; // czekamy, az obie paczki danych sie zaladuja
   if (!gameState.lobbyOpened || !gameState.started) { window.location.href = "index.html"; return; }
   if (!identity.id || !playersData[identity.id]) { window.location.href = "index.html"; return; }
   renderAll();
@@ -409,12 +412,14 @@ async function endTurn() {
 if (isConfigured) {
   db.collection("game").doc("state").onSnapshot((doc) => {
     gameState = doc.exists ? Object.assign({ lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0, mainGateOpen: false, rearGateOpen: false }, doc.data()) : gameState;
+    gameStateLoaded = true;
     checkAccessAndRender();
   }, (err) => { console.error("Błąd połączenia (game/state):", err); });
 
   db.collection("players").onSnapshot((snap) => {
     playersData = {};
     snap.forEach((doc) => { playersData[doc.id] = doc.data(); });
+    playersLoaded = true;
     checkAccessAndRender();
   }, (err) => { console.error("Błąd połączenia (players):", err); });
 
