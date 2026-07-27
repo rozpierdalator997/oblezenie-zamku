@@ -7,10 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- Firebase (wersja "compat" - prostsza składnia, dobra dla początkujących) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<!-- Biblioteka do generowania kodu QR (do wyświetlenia linku, żeby gracze mogli zeskanować) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
@@ -23,10 +21,8 @@
     --text-dim: #9098a8;
     --text-faint: #5b6172;
 
-    --p1: #f5a623;
-    --p2: #4a9de0;
-    --p3: #e8583d;
-    --p4: #4caf7d;
+    --atak: #e8583d;
+    --obrona: #4a9de0;
 
     --radius: 14px;
     --radius-sm: 8px;
@@ -37,13 +33,8 @@
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
   body{
-    margin:0;
-    min-height:100vh;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-body);
-    display:flex;
-    justify-content:center;
+    margin:0; min-height:100vh; background: var(--bg); color: var(--text);
+    font-family: var(--font-body); display:flex; justify-content:center;
     padding: 24px 16px 48px;
   }
 
@@ -51,181 +42,257 @@
 
   a, button{ font-family: inherit; }
   button{ cursor:pointer; }
-  button:focus-visible, a:focus-visible{
-    outline: 2px solid var(--text);
-    outline-offset: 2px;
-  }
+  button:focus-visible, a:focus-visible{ outline: 2px solid var(--text); outline-offset: 2px; }
 
   .eyebrow{
-    font-family: var(--font-display);
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin: 0 0 6px;
+    font-family: var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+    font-size: 12px; color: var(--text-dim); margin: 0 0 6px;
+  }
+  h1{ font-family: var(--font-display); font-weight: 600; font-size: 27px; letter-spacing:.01em; margin: 0 0 4px; }
+  .sub{ color: var(--text-dim); font-size: 14px; margin: 0 0 24px; line-height:1.5; }
+
+  .hint{ font-size:12.5px; color: var(--text-faint); text-align:center; margin-top: 18px; line-height:1.5; }
+
+  .banner{
+    background:#2a1c1c; border:1px solid var(--atak); color:#f3c9c0;
+    border-radius: var(--radius-sm); padding:14px; font-size:13.5px; line-height:1.5; margin-bottom:20px;
+  }
+  .banner code{ background:rgba(0,0,0,.25); padding:1px 5px; border-radius:4px; }
+
+  .hidden{ display:none !important; }
+
+  /* ---------- bramka startowa ---------- */
+  .start-gate{ text-align:center; padding: 60px 0 20px; }
+  .start-gate .big-icon{ font-size:44px; margin-bottom:18px; }
+  #start-btn{
+    display:block; width:100%; margin-top:28px;
+    background: linear-gradient(135deg, var(--atak), var(--obrona));
+    color:#fff; border:none; border-radius: var(--radius);
+    padding: 18px; font-family: var(--font-display); font-size:17px;
+    font-weight:600; letter-spacing:.03em; text-transform:uppercase;
   }
 
-  h1{
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 28px;
-    letter-spacing: .01em;
-    margin: 0 0 4px;
+  /* ---------- wybor druzyny ---------- */
+  .team-card{
+    width:100%; text-align:left;
+    background: var(--bg-panel); border:1px solid var(--line);
+    border-left: 5px solid var(--team-color, var(--text-faint));
+    border-radius: var(--radius); padding: 18px 20px; margin-bottom:14px;
+  }
+  .team-card:active{ transform: scale(0.99); }
+  .team-card .t-icon{ font-size:22px; }
+  .team-card .t-title{
+    font-family: var(--font-display); font-size:21px; font-weight:600;
+    margin: 6px 0 3px; color: var(--team-color);
+  }
+  .team-card .t-count{ font-size:12.5px; color: var(--text-dim); margin-bottom:10px; }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    background: var(--bg-panel-raised); border:1px solid var(--line); border-radius:999px;
+    padding:4px 11px; font-size:12px; color: var(--text-dim);
   }
 
-  .sub{ color: var(--text-dim); font-size: 14px; margin: 0 0 28px; line-height:1.5; }
+  /* ---------- wybor "ktorym jestes graczem" ---------- */
+  .back-link{ background:none; border:none; color: var(--text-faint); font-size:13px; margin-bottom:18px; text-decoration:underline; }
 
-  /* ---------- LOBBY: kafelki wyboru gracza ---------- */
   .slot{
-    display:flex;
-    align-items:center;
-    gap:14px;
-    width:100%;
-    background: var(--bg-panel);
-    border: 1px solid var(--line);
-    border-left: 5px solid var(--slot-color, var(--text-faint));
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    text-align:left;
-    transition: transform .12s ease, background .12s ease;
+    display:flex; align-items:center; gap:14px; width:100%;
+    background: var(--bg-panel); border: 1px solid var(--line);
+    border-left: 5px solid var(--team-color, var(--text-faint));
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; text-align:left;
   }
+  .slot.new-slot{ border-style: dashed; }
   .slot:active{ transform: scale(0.98); }
-  .slot:not([disabled]):hover{ background: var(--bg-panel-raised); }
-
   .slot-num{
-    font-family: var(--font-display);
-    font-size: 26px;
-    font-weight: 600;
-    color: var(--slot-color, var(--text));
-    width: 34px;
-    text-align:center;
-    flex-shrink:0;
+    font-family: var(--font-display); font-size: 22px; font-weight: 600;
+    color: var(--team-color, var(--text)); width: 34px; text-align:center; flex-shrink:0;
   }
   .slot-body{ flex:1; min-width:0; }
   .slot-name{ font-weight:600; font-size:15px; }
   .slot-status{ font-size:12.5px; color: var(--text-dim); margin-top:2px; }
   .slot-arrow{ color: var(--text-faint); font-size:18px; }
 
-  .lobby-actions{ margin-top: 28px; padding-top:20px; border-top:1px solid var(--line); }
+  /* ---------- pasek gorny (poczekalnia + gra) ---------- */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .gear-wrap{ position:relative; }
+  .gear-btn{
+    background: var(--bg-panel); border:1px solid var(--line); color: var(--text-dim);
+    width:42px; height:42px; border-radius:50%; font-size:18px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .gear-menu{
+    position:absolute; top:50px; left:0; background: var(--bg-panel-raised);
+    border:1px solid var(--line); border-radius: var(--radius-sm); min-width:210px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.45); z-index:20; overflow:hidden;
+  }
+  .gear-menu button{
+    display:block; width:100%; text-align:left; background:none; border:none;
+    color: var(--text); padding:13px 15px; font-size:14px;
+  }
+  .gear-menu button:hover{ background: var(--bg-panel); }
+  .gear-menu button.danger{ color: var(--atak); }
+  .topbar-team-badge{
+    font-family: var(--font-display); font-size:12.5px; letter-spacing:.06em;
+    text-transform:uppercase; color: var(--team-color, var(--text-dim));
+    background: var(--bg-panel); border:1px solid var(--line); border-radius:999px; padding:8px 14px;
+  }
+
+  /* ---------- poczekalnia ---------- */
+  .roster-section{ margin-bottom:18px; }
+  .roster-section h3{
+    font-family: var(--font-display); font-size:13.5px; text-transform:uppercase;
+    letter-spacing:.06em; color: var(--team-color); margin:0 0 9px;
+  }
+  .roster-empty{ font-size:13px; color: var(--text-faint); font-style:italic; }
+
+  #start-match-btn{
+    display:block; width:100%; margin-top:8px;
+    background: var(--bg-panel); color: var(--text-faint);
+    border:1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; font-family: var(--font-display); font-size:15.5px;
+    font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+  }
+  #start-match-btn.ready{
+    background: linear-gradient(135deg, var(--atak), var(--obrona));
+    color:#fff; border:none;
+  }
+  .start-match-hint{ font-size:12px; color: var(--text-faint); text-align:center; margin-top:8px; }
+
   .ghost-btn{
-    display:block; width:100%;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--text-dim);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    font-size: 13.5px;
-    font-weight:500;
-    margin-bottom:10px;
-    text-align:center;
+    display:block; width:100%; background: transparent; border: 1px solid var(--line);
+    color: var(--text-dim); border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 13.5px; font-weight:500; margin-bottom:10px; text-align:center;
   }
   .ghost-btn:hover{ border-color: var(--text-faint); color: var(--text); }
-  .ghost-btn.danger:hover{ border-color: var(--p3); color: var(--p3); }
 
-  #qr-box{
-    display:none;
-    background:#fff;
-    padding:16px;
-    border-radius: var(--radius);
-    margin-top:14px;
-    text-align:center;
-  }
-  #qr-box.show{ display:block; }
-  #qr-box p{ color:#222; font-family: var(--font-body); font-size:12px; margin:10px 0 0; word-break: break-all; }
+  #qr-box-1, #qr-box-2{ display:none; background:#fff; padding:16px; border-radius: var(--radius); margin-top:14px; text-align:center; }
+  #qr-box-1.show, #qr-box-2.show{ display:block; }
+  #qr-box-1 p, #qr-box-2 p{ color:#222; font-family: var(--font-body); font-size:12px; margin:10px 0 0; word-break: break-all; }
 
-  /* ---------- PLACEHOLDER: PANEL GRACZA ---------- */
+  /* ---------- ekran gracza (placeholder) ---------- */
   .player-hero{
-    background: var(--slot-color);
-    border-radius: var(--radius);
-    padding: 22px 20px;
-    margin-bottom: 18px;
-    color: #14161c;
+    background: var(--team-color); border-radius: var(--radius); padding: 20px; margin-bottom: 18px; color: #14161c;
   }
-  .player-hero .row{ display:flex; justify-content:space-between; align-items:flex-start; }
-  .player-hero .num{ font-family: var(--font-display); font-size:15px; font-weight:600; opacity:.75; letter-spacing:.08em; text-transform:uppercase; }
-  .player-hero .name{ font-family: var(--font-display); font-size: 30px; font-weight:700; margin-top:2px; }
-  .edit-name{ background: rgba(20,22,28,.15); border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; color:#14161c; }
+  .player-hero .num{ font-family: var(--font-display); font-size:14px; font-weight:600; opacity:.75; letter-spacing:.08em; text-transform:uppercase; }
+  .player-hero .name{ font-family: var(--font-display); font-size: 28px; font-weight:700; margin-top:2px; }
+
+  .turn-pill{
+    display:flex; align-items:center; gap:9px; background: var(--bg-panel); border:1px solid var(--line);
+    border-radius: 999px; padding: 10px 15px; font-size: 13px; color: var(--text-dim); margin-bottom: 10px;
+  }
+  .turn-dot{ width:9px; height:9px; border-radius:50%; background: var(--turn-color, var(--text-faint)); flex-shrink:0; }
+  .turn-pill strong{ color: var(--text); font-weight:600; }
+  .turn-pill.mine{ border-color: var(--turn-color); }
+  .round-label{ font-size:12px; color: var(--text-faint); text-align:center; margin-bottom:20px; }
+
+  #end-turn-btn{
+    display:block; width:100%; background: var(--team-color); color: #14161c; border:none;
+    border-radius: var(--radius-sm); padding: 14px; font-family: var(--font-display); font-size: 15px;
+    font-weight:600; letter-spacing:.03em; text-transform:uppercase; margin-bottom: 20px;
+  }
+  #end-turn-btn:disabled{ background: var(--bg-panel); color: var(--text-faint); border: 1px solid var(--line); }
 
   .placeholder-card{
-    background: var(--bg-panel);
-    border: 1px dashed var(--line);
-    border-radius: var(--radius);
-    padding: 28px 20px;
-    text-align:center;
-    color: var(--text-faint);
-    font-size: 14px;
-    line-height:1.6;
+    background: var(--bg-panel); border: 1px dashed var(--line); border-radius: var(--radius);
+    padding: 26px 20px; text-align:center; color: var(--text-faint); font-size: 14px; line-height:1.6;
   }
-
-  .panel-footer{ margin-top:24px; padding-top:16px; border-top:1px solid var(--line); text-align:center; }
-  .link-btn{ background:none; border:none; color: var(--text-faint); font-size:13px; text-decoration:underline; }
-  .link-btn:hover{ color: var(--text-dim); }
-
-  .hint{
-    font-size:12.5px;
-    color: var(--text-faint);
-    text-align:center;
-    margin-top: 18px;
-    line-height:1.5;
-  }
-
-  .banner{
-    background:#2a1c1c; border:1px solid var(--p3); color:#f3c9c0;
-    border-radius: var(--radius-sm); padding:14px; font-size:13.5px; line-height:1.5; margin-bottom:20px;
-  }
-  .banner code{ background:rgba(0,0,0,.25); padding:1px 5px; border-radius:4px; }
-
-  .hidden{ display:none !important; }
 </style>
 </head>
 <body>
 <div id="app">
 
   <div id="config-banner" class="banner hidden">
-    ⚠️ Nie uzupełniono jeszcze konfiguracji Firebase. Otwórz plik <code>index.html</code>,
-    znajdź sekcję <code>firebaseConfig</code> na dole strony i wklej tam dane ze swojego
-    projektu Firebase (instrukcja w pliku README.md).
+    ⚠️ Nie uzupełniono jeszcze konfiguracji Firebase w pliku <code>index.html</code>.
   </div>
 
-  <!-- ===================== WIDOK: LOBBY ===================== -->
-  <section id="view-lobby" class="hidden">
-    <p class="eyebrow">Dołącz do gry</p>
-    <h1>Wybierz, którym<br>graczem jesteś</h1>
-    <p class="sub">Zajęte miejsca są widoczne dla wszystkich na bieżąco. Jeśli to Twoje miejsce z poprzedniej rozgrywki, dotknij je, żeby wrócić do swojego panelu.</p>
-
-    <div id="slots"></div>
-
-    <div class="lobby-actions">
-      <button class="ghost-btn" id="show-qr-btn">📱 Pokaż kod QR do dołączenia</button>
-      <div id="qr-box"><div id="qr-canvas"></div><p id="qr-url"></p></div>
-
-      <button class="ghost-btn danger" id="new-game-btn" style="margin-top:14px;">🔄 Nowa gra — zwolnij wszystkie miejsca</button>
+  <!-- ===================== 1. BRAMKA STARTOWA ===================== -->
+  <section id="view-start" class="hidden">
+    <div class="start-gate">
+      <div class="big-icon">🏰</div>
+      <h1>Oblężenie zamku</h1>
+      <p class="sub">Nikt jeszcze nie rozpoczął tej rozgrywki. Bądź pierwszy/pierwsza.</p>
+      <button id="start-btn">🚀 Rozpocznij grę</button>
     </div>
-
-    <p class="hint">To na razie tylko wybór graczy — właściwy widok gry dojdzie w kolejnym kroku.</p>
   </section>
 
-  <!-- ===================== WIDOK: PLACEHOLDER PANELU GRACZA ===================== -->
-  <section id="view-player" class="hidden">
+  <!-- ===================== 2. WYBÓR DRUŻYNY ===================== -->
+  <section id="view-choose-team" class="hidden">
+    <p class="eyebrow">Dołącz do gry</p>
+    <h1>Wybierz swoją drużynę</h1>
+    <p class="sub">Zobaczysz, kto już dołączył do każdej ze stron.</p>
+    <div id="team-grid"></div>
+    <button class="ghost-btn" id="show-qr-btn-1" style="margin-top:8px;">📱 Pokaż kod QR do dołączenia</button>
+    <div id="qr-box-1"></div>
+  </section>
 
-    <div class="player-hero" id="hero">
-      <div class="row">
-        <div>
-          <div class="num" id="p-num">GRACZ 1</div>
-          <div class="name" id="p-name">—</div>
+  <!-- ===================== 3. WYBÓR "KTÓRYM JESTEŚ GRACZEM" ===================== -->
+  <section id="view-choose-slot" class="hidden">
+    <button class="back-link" id="back-to-team-btn">← Wróć do wyboru drużyny</button>
+    <p class="eyebrow" id="slot-team-eyebrow">Drużyna</p>
+    <h1 id="slot-team-title">Którym jesteś graczem?</h1>
+    <p class="sub">Jeśli to Twoje miejsce z poprzedniej rozgrywki, dotknij je, żeby wrócić do panelu.</p>
+    <div id="slot-list"></div>
+  </section>
+
+  <!-- ===================== 4. POCZEKALNIA ===================== -->
+  <section id="view-waiting" class="hidden">
+    <div class="topbar">
+      <div class="gear-wrap">
+        <button class="gear-btn" id="gear-btn-w">⚙️</button>
+        <div class="gear-menu hidden" id="gear-menu-w">
+          <button class="danger" id="end-game-btn-w">🗑️ Zakończ rozgrywkę</button>
         </div>
-        <button class="edit-name" id="rename-btn">✏️ Zmień imię</button>
+      </div>
+      <div class="topbar-team-badge" id="w-team-badge">Gracz</div>
+    </div>
+
+    <p class="eyebrow">Poczekalnia</p>
+    <h1>Czekamy na graczy</h1>
+    <p class="sub">Każdy dostępny gracz może rozpocząć rozgrywkę, gdy wszyscy dołączą.</p>
+
+    <div class="roster-section">
+      <h3 style="--team-color: var(--atak);">⚔️ Atakujący</h3>
+      <div class="chip-row" id="roster-atak"></div>
+    </div>
+    <div class="roster-section">
+      <h3 style="--team-color: var(--obrona);">🛡️ Broniący</h3>
+      <div class="chip-row" id="roster-obrona"></div>
+    </div>
+
+    <button id="start-match-btn">🚀 Rozpocznij grę</button>
+    <p class="start-match-hint" id="start-match-hint"></p>
+
+    <button class="ghost-btn" id="show-qr-btn-2" style="margin-top:22px;">📱 Pokaż kod QR do dołączenia</button>
+    <div id="qr-box-2"></div>
+  </section>
+
+  <!-- ===================== 5. EKRAN GRACZA (placeholder) ===================== -->
+  <section id="view-player" class="hidden">
+    <div class="topbar">
+      <div class="gear-wrap">
+        <button class="gear-btn" id="gear-btn-p">⚙️</button>
+        <div class="gear-menu hidden" id="gear-menu-p">
+          <button class="danger" id="end-game-btn-p">🗑️ Zakończ rozgrywkę</button>
+        </div>
       </div>
     </div>
 
-    <div class="placeholder-card">
-      Jesteś podpięty/a jako ten gracz. 👋<br>
-      Tutaj pojawi się właściwy panel gry — daj znać, co dokładnie ma się na nim znaleźć.
+    <div class="player-hero" id="hero">
+      <div class="num" id="p-team-label">ATAKUJĄCY</div>
+      <div class="name" id="p-name">—</div>
     </div>
 
-    <div class="panel-footer">
-      <button class="link-btn" id="back-to-lobby-btn">← Wróć do lobby</button>
+    <div class="turn-pill" id="turn-pill">
+      <span class="turn-dot" id="turn-dot"></span>
+      <span>Tura: <strong id="turn-name">—</strong></span>
+    </div>
+    <p class="round-label" id="round-label"></p>
+
+    <button id="end-turn-btn">Zakończ turę →</button>
+
+    <div class="placeholder-card">
+      Tutaj pojawi się właściwy ekran rozgrywki (karty, zakupy, atak). 👇<br>
+      Na razie to tylko potwierdzenie, że kolejność tur i Twoje miejsce w drużynie już działają.
     </div>
   </section>
 
@@ -233,11 +300,8 @@
 
 <script>
 /* ============================================================
-   1) KONFIGURACJA — DOSTOSUJ TUTAJ
+   1) KONFIGURACJA
    ============================================================ */
-
-// Wklej tutaj obiekt konfiguracyjny ze swojego projektu Firebase
-// (Firebase Console → Ustawienia projektu → Twoje aplikacje → SDK config)
 const firebaseConfig = {
   apiKey: "AIzaSyBzgmxYdMvGOtS62Tr8eFDoROwfMEE9L7M",
   authDomain: "oblezenie-zamku.firebaseapp.com",
@@ -247,150 +311,303 @@ const firebaseConfig = {
   appId: "1:288564292983:web:f2ba2f472ea341f1e94572"
 };
 
-const GAME_TITLE = "Tablica Graczy";
-const PLAYER_COLORS = { 1: "#f5a623", 2: "#4a9de0", 3: "#e8583d", 4: "#4caf7d" };
-const PLAYER_COUNT = 4;
+const GAME_TITLE = "Oblężenie zamku";
+const TEAM_LABEL = { atak: "Atakujący", obrona: "Broniący" };
+const TEAM_ICON  = { atak: "⚔️", obrona: "🛡️" };
 
 /* ============================================================
    2) LOGIKA APLIKACJI
    ============================================================ */
-
 document.title = GAME_TITLE;
 
 const isConfigured = !String(firebaseConfig.apiKey).startsWith("WKLEJ_TU");
-if (!isConfigured) {
-  document.getElementById("config-banner").classList.remove("hidden");
-}
+if (!isConfigured) document.getElementById("config-banner").classList.remove("hidden");
 
 let db = null;
-if (isConfigured) {
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
-}
+if (isConfigured) { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); }
 
 const el = (id) => document.getElementById(id);
-const viewLobby = el("view-lobby");
-const viewPlayer = el("view-player");
-
-let playersData = {};
-let mySlot = Number(localStorage.getItem("bg_playerSlot")) || null;
-let manualLobby = false;
-
-function showLobby() {
-  viewLobby.classList.remove("hidden");
-  viewPlayer.classList.add("hidden");
-}
-function showPlayerPanel() {
-  viewLobby.classList.add("hidden");
-  viewPlayer.classList.remove("hidden");
+const views = ["start", "choose-team", "choose-slot", "waiting", "player"];
+function showView(name) {
+  views.forEach(v => el("view-" + v).classList.toggle("hidden", v !== name));
 }
 
-function renderLobby() {
-  const wrap = el("slots");
-  wrap.innerHTML = "";
-  for (let n = 1; n <= PLAYER_COUNT; n++) {
-    const p = playersData[n] || { claimed: false, name: "" };
-    const btn = document.createElement("button");
-    btn.className = "slot";
-    btn.style.setProperty("--slot-color", PLAYER_COLORS[n]);
-    btn.innerHTML = `
-      <div class="slot-num">${n}</div>
-      <div class="slot-body">
-        <div class="slot-name">${p.claimed ? escapeHtml(p.name || ("Gracz " + n)) : "Wolne miejsce"}</div>
-        <div class="slot-status">${p.claimed ? "Dotknij, aby wrócić do tego panelu" : "Dotknij, aby dołączyć jako Gracz " + n}</div>
-      </div>
-      <div class="slot-arrow">›</div>
-    `;
-    btn.addEventListener("click", () => joinSlot(n, p));
-    wrap.appendChild(btn);
-  }
-}
+let gameState = { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 };
+let playersData = {}; // { "atak-1": {team,slot,name}, ... }
 
-async function joinSlot(n, existing) {
-  if (!db) return;
-  const ref = db.collection("players").doc(String(n));
-  if (!existing || !existing.claimed) {
-    const name = prompt("Podaj swoje imię (albo zostaw puste):", "Gracz " + n) || ("Gracz " + n);
-    await ref.set({ claimed: true, name: name }, { merge: true });
-  }
-  localStorage.setItem("bg_playerSlot", String(n));
-  mySlot = n;
-  manualLobby = false;
-  showPlayerPanel();
-}
+let myTeam = localStorage.getItem("bg_team") || null;
+let mySlot = Number(localStorage.getItem("bg_slot")) || null;
+let myId = (myTeam && mySlot) ? (myTeam + "-" + mySlot) : null;
 
-function renderPlayerPanel() {
-  if (!mySlot) return;
-  const p = playersData[mySlot] || { name: "Gracz " + mySlot };
-  const color = PLAYER_COLORS[mySlot];
-
-  el("hero").style.setProperty("--slot-color", color);
-  el("p-num").textContent = "GRACZ " + mySlot;
-  el("p-name").textContent = p.name || ("Gracz " + mySlot);
-}
-
-async function renamePlayer() {
-  if (!db || !mySlot) return;
-  const current = (playersData[mySlot] && playersData[mySlot].name) || "";
-  const name = prompt("Nowe imię:", current);
-  if (name === null) return;
-  await db.collection("players").doc(String(mySlot)).update({ name: name || ("Gracz " + mySlot) });
-}
-
-async function newGame() {
-  if (!db) return;
-  if (!confirm("To zwolni wszystkie miejsca — każdy będzie musiał dołączyć od nowa. Kontynuować?")) return;
-  const batch = db.batch();
-  for (let n = 1; n <= PLAYER_COUNT; n++) {
-    batch.set(db.collection("players").doc(String(n)), { claimed: false, name: "" });
-  }
-  await batch.commit();
-  localStorage.removeItem("bg_playerSlot");
-  mySlot = null;
-  manualLobby = false;
-  showLobby();
-}
-
-let qrRendered = false;
-function toggleQr() {
-  const box = el("qr-box");
-  box.classList.toggle("show");
-  if (box.classList.contains("show") && !qrRendered) {
-    new QRCode(el("qr-canvas"), { text: window.location.href.split("#")[0], width: 200, height: 200 });
-    el("qr-url").textContent = window.location.href.split("#")[0];
-    qrRendered = true;
-  }
-}
+let uiSelectedTeam = null; // stan tylko lokalny, uzywany miedzy widokiem 2 i 3
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-function route() {
-  if (manualLobby) { showLobby(); renderLobby(); return; }
-  if (mySlot && playersData[mySlot] && playersData[mySlot].claimed) {
-    showPlayerPanel();
-    renderPlayerPanel();
-  } else {
-    showLobby();
-    renderLobby();
-  }
+function playersByTeam(team) {
+  return Object.entries(playersData)
+    .filter(([id, p]) => p.team === team)
+    .map(([id, p]) => ({ id, ...p }))
+    .sort((a, b) => a.slot - b.slot);
 }
 
+/* ---------- routing ---------- */
+function route() {
+  if (!isConfigured) return;
+
+  if (!gameState.lobbyOpened) {
+    showView("start");
+    return;
+  }
+
+  if (myId && playersData[myId]) {
+    if (gameState.started) { showView("player"); renderPlayer(); }
+    else { showView("waiting"); renderWaiting(); }
+    return;
+  }
+
+  // brak waznego lokalnego przypisania (albo nigdy nie dolaczono, albo zostalo wyczyszczone resetem)
+  if (myId) { localStorage.removeItem("bg_team"); localStorage.removeItem("bg_slot"); myTeam = null; mySlot = null; myId = null; }
+
+  if (uiSelectedTeam) { showView("choose-slot"); renderChooseSlot(); }
+  else { showView("choose-team"); renderChooseTeam(); }
+}
+
+/* ---------- widok 1: bramka startowa ---------- */
+async function startLobby() {
+  await db.collection("game").doc("state").set({ lobbyOpened: true }, { merge: true });
+}
+
+/* ---------- widok 2: wybor druzyny ---------- */
+function renderChooseTeam() {
+  const wrap = el("team-grid");
+  wrap.innerHTML = "";
+  ["atak", "obrona"].forEach((team) => {
+    const members = playersByTeam(team);
+    const card = document.createElement("button");
+    card.className = "team-card";
+    card.style.setProperty("--team-color", "var(--" + team + ")");
+    card.innerHTML = `
+      <div class="t-icon">${TEAM_ICON[team]}</div>
+      <div class="t-title">${TEAM_LABEL[team]}</div>
+      <div class="t-count">${members.length ? members.length + " graczy dołączonych" : "Nikt jeszcze nie dołączył"}</div>
+      <div class="chip-row">${members.map(m => `<span class="chip">${escapeHtml(m.name)}</span>`).join("") || ""}</div>
+    `;
+    card.addEventListener("click", () => { uiSelectedTeam = team; showView("choose-slot"); renderChooseSlot(); });
+    wrap.appendChild(card);
+  });
+}
+
+/* ---------- widok 3: wybor "ktorym jestes graczem" ---------- */
+function renderChooseSlot() {
+  const team = uiSelectedTeam;
+  el("slot-team-eyebrow").textContent = TEAM_ICON[team] + " " + TEAM_LABEL[team];
+  el("slot-team-title").textContent = "Którym jesteś graczem?";
+
+  const members = playersByTeam(team);
+  const nextSlot = (members.reduce((max, m) => Math.max(max, m.slot), 0)) + 1;
+
+  const wrap = el("slot-list");
+  wrap.innerHTML = "";
+
+  members.forEach((m) => {
+    const btn = document.createElement("button");
+    btn.className = "slot";
+    btn.style.setProperty("--team-color", "var(--" + team + ")");
+    btn.innerHTML = `
+      <div class="slot-num">${m.slot}</div>
+      <div class="slot-body">
+        <div class="slot-name">${escapeHtml(m.name)}</div>
+        <div class="slot-status">Dotknij, aby wrócić do tego panelu</div>
+      </div>
+      <div class="slot-arrow">›</div>
+    `;
+    btn.addEventListener("click", () => joinSlot(team, m.slot, null));
+    wrap.appendChild(btn);
+  });
+
+  const newBtn = document.createElement("button");
+  newBtn.className = "slot new-slot";
+  newBtn.style.setProperty("--team-color", "var(--" + team + ")");
+  newBtn.innerHTML = `
+    <div class="slot-num">+</div>
+    <div class="slot-body">
+      <div class="slot-name">Dołącz jako nowy gracz</div>
+      <div class="slot-status">Będziesz graczem ${nextSlot} w tej drużynie</div>
+    </div>
+    <div class="slot-arrow">›</div>
+  `;
+  newBtn.addEventListener("click", () => joinSlot(team, nextSlot, "Gracz " + nextSlot));
+  wrap.appendChild(newBtn);
+}
+
+async function joinSlot(team, slot, defaultName) {
+  if (defaultName !== null) {
+    const name = prompt("Podaj swój nick:", defaultName) || defaultName;
+    await db.collection("players").doc(team + "-" + slot).set({ team, slot, name });
+  }
+  localStorage.setItem("bg_team", team);
+  localStorage.setItem("bg_slot", String(slot));
+  myTeam = team; mySlot = slot; myId = team + "-" + slot;
+  uiSelectedTeam = null;
+  route();
+}
+
+el("back-to-team-btn").addEventListener("click", () => { uiSelectedTeam = null; showView("choose-team"); renderChooseTeam(); });
+
+/* ---------- widok 4: poczekalnia ---------- */
+function renderWaiting() {
+  const me = playersData[myId];
+  el("w-team-badge").textContent = TEAM_ICON[me.team] + " " + TEAM_LABEL[me.team] + " — " + me.name;
+  el("w-team-badge").style.setProperty("--team-color", "var(--" + me.team + ")");
+
+  const atak = playersByTeam("atak");
+  const obrona = playersByTeam("obrona");
+
+  el("roster-atak").innerHTML = atak.length
+    ? atak.map(p => `<span class="chip">${escapeHtml(p.name)}</span>`).join("")
+    : `<span class="roster-empty">Nikt jeszcze</span>`;
+  el("roster-obrona").innerHTML = obrona.length
+    ? obrona.map(p => `<span class="chip">${escapeHtml(p.name)}</span>`).join("")
+    : `<span class="roster-empty">Nikt jeszcze</span>`;
+
+  const ready = atak.length > 0 && obrona.length > 0;
+  const startBtn = el("start-match-btn");
+  startBtn.classList.toggle("ready", ready);
+  el("start-match-hint").textContent = ready
+    ? "Wszystko gotowe — dowolny gracz może rozpocząć."
+    : "Potrzeba przynajmniej jednego gracza w każdej drużynie.";
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildTurnOrder() {
+  const atak = shuffle(playersByTeam("atak").map(p => p.id));
+  const obrona = shuffle(playersByTeam("obrona").map(p => p.id));
+  const order = [];
+  const maxLen = Math.max(atak.length, obrona.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (i < atak.length) order.push(atak[i]);
+    if (i < obrona.length) order.push(obrona[i]);
+  }
+  return order;
+}
+
+async function startMatch() {
+  const atak = playersByTeam("atak");
+  const obrona = playersByTeam("obrona");
+  if (atak.length === 0 || obrona.length === 0) return;
+  const turnOrder = buildTurnOrder();
+  await db.collection("game").doc("state").set({ started: true, turnOrder, turnCounter: 0 }, { merge: true });
+}
+
+/* ---------- widok 5: ekran gracza (placeholder) ---------- */
+function renderPlayer() {
+  const me = playersData[myId];
+  el("hero").style.setProperty("--team-color", "var(--" + me.team + ")");
+  el("p-team-label").textContent = TEAM_ICON[me.team] + " " + TEAM_LABEL[me.team].toUpperCase();
+  el("p-name").textContent = me.name;
+
+  const order = gameState.turnOrder || [];
+  const total = order.length || 1;
+  const idx = gameState.turnCounter % total;
+  const currentId = order[idx];
+  const current = playersData[currentId];
+  const isMyTurn = currentId === myId;
+
+  const turnColor = current ? "var(--" + current.team + ")" : "var(--text-faint)";
+  el("turn-pill").classList.toggle("mine", isMyTurn);
+  el("turn-pill").style.setProperty("--turn-color", turnColor);
+  el("turn-name").textContent = isMyTurn ? "Ty" : (current ? current.name : "—");
+
+  const round = Math.floor(gameState.turnCounter / total) + 1;
+  el("round-label").textContent = "Runda " + round + " / 50" + (round <= 10 ? " · faza budowy (bez ataku)" : "");
+
+  const endBtn = el("end-turn-btn");
+  endBtn.style.setProperty("--team-color", "var(--" + me.team + ")");
+  endBtn.disabled = !isMyTurn;
+  endBtn.textContent = isMyTurn ? "Zakończ turę →" : "Czekasz na swoją turę…";
+}
+
+async function endTurn() {
+  await db.collection("game").doc("state").update({
+    turnCounter: firebase.firestore.FieldValue.increment(1)
+  });
+}
+
+/* ---------- zakonicz rozgrywke (reset do zera) ---------- */
+async function endGame() {
+  if (!confirm("Zakończyć rozgrywkę? Wszyscy gracze będą musieli dołączyć od nowa.")) return;
+  const snap = await db.collection("players").get();
+  const batch = db.batch();
+  snap.forEach(doc => batch.delete(doc.ref));
+  batch.set(db.collection("game").doc("state"), { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 });
+  await batch.commit();
+  localStorage.removeItem("bg_team"); localStorage.removeItem("bg_slot");
+  myTeam = null; mySlot = null; myId = null; uiSelectedTeam = null;
+  route();
+}
+
+/* ---------- kod QR ---------- */
+function setupQr(btnId, boxId) {
+  let rendered = false;
+  el(btnId).addEventListener("click", () => {
+    const box = el(boxId);
+    if (!rendered) {
+      box.innerHTML = `<div id="${boxId}-canvas"></div><p>${window.location.href.split("#")[0]}</p>`;
+      box.classList.add("show");
+      new QRCode(el(boxId + "-canvas"), { text: window.location.href.split("#")[0], width: 180, height: 180 });
+      rendered = true;
+    } else {
+      box.classList.toggle("show");
+    }
+  });
+}
+
+/* ---------- menu (ikona zebatki) ---------- */
+function setupGear(btnId, menuId) {
+  el(btnId).addEventListener("click", (e) => {
+    e.stopPropagation();
+    el(menuId).classList.toggle("hidden");
+  });
+}
+document.addEventListener("click", () => {
+  el("gear-menu-w").classList.add("hidden");
+  el("gear-menu-p").classList.add("hidden");
+});
+
+/* ---------- start ---------- */
 if (isConfigured) {
+  db.collection("game").doc("state").onSnapshot((doc) => {
+    gameState = doc.exists ? Object.assign({ lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 }, doc.data()) : { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 };
+    route();
+  });
   db.collection("players").onSnapshot((snap) => {
+    playersData = {};
     snap.forEach((doc) => { playersData[doc.id] = doc.data(); });
     route();
   });
 
-  el("show-qr-btn").addEventListener("click", toggleQr);
-  el("new-game-btn").addEventListener("click", newGame);
-  el("rename-btn").addEventListener("click", renamePlayer);
-  el("back-to-lobby-btn").addEventListener("click", () => { manualLobby = true; route(); });
+  el("start-btn").addEventListener("click", startLobby);
+  el("start-match-btn").addEventListener("click", startMatch);
+  el("end-turn-btn").addEventListener("click", endTurn);
+  el("end-game-btn-w").addEventListener("click", endGame);
+  el("end-game-btn-p").addEventListener("click", endGame);
+
+  setupQr("show-qr-btn-1", "qr-box-1");
+  setupQr("show-qr-btn-2", "qr-box-2");
+  setupGear("gear-btn-w", "gear-menu-w");
+  setupGear("gear-btn-p", "gear-menu-p");
 
   route();
-} else {
-  showLobby();
 }
 </script>
 </body>
