@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Walka — Tablica Graczy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="wspolne.js"></script>
+
+<style>
+  :root{
+    --bg: #14161c;
+    --bg-panel: #1e212b;
+    --bg-panel-raised: #262a36;
+    --line: #333748;
+    --text: #edeef2;
+    --text-dim: #9098a8;
+    --text-faint: #5b6172;
+
+    --atak: #e8583d;
+    --obrona: #4a9de0;
+
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body{
+    margin:0; min-height:100vh; background: var(--bg); color: var(--text);
+    font-family: var(--font-body); display:flex; justify-content:center;
+    padding: 24px 16px 48px;
+  }
+  #app{ width:100%; max-width: 460px; }
+  a, button{ font-family: inherit; }
+  button{ cursor:pointer; }
+  button:focus-visible{ outline: 2px solid var(--text); outline-offset: 2px; }
+  .hidden{ display:none !important; }
+
+  .eyebrow{
+    font-family: var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+    font-size: 12px; color: var(--text-dim); margin: 0 0 6px;
+  }
+  h1{ font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0 0 4px; }
+  .sub{ color: var(--text-dim); font-size: 14px; margin: 0 0 20px; line-height:1.5; }
+  .round-label{ font-size:12.5px; color: var(--text-faint); text-align:center; margin: 10px 0; }
+  .roster-empty{ font-size:13px; color: var(--text-faint); font-style:italic; }
+
+  .stat-card{
+    background: var(--bg-panel); border:1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom:16px;
+  }
+  .section-label{
+    font-family: var(--font-display); font-size:13px; text-transform:uppercase;
+    letter-spacing:.06em; color: var(--text-dim); margin:0 0 10px;
+  }
+  .shop-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:8px 0; border-top:1px solid var(--line);
+  }
+  .shop-row:first-of-type{ border-top:none; }
+  .shop-row label{ font-size:14px; color: var(--text); }
+  .shop-row input[type="number"]{
+    width:64px; background: var(--bg-panel-raised); border:1px solid var(--line); color: var(--text);
+    border-radius: var(--radius-sm); padding:8px; font-size:15px; text-align:center; font-family: var(--font-body);
+  }
+  .shop-row input[type="number"]:focus{ outline: 2px solid var(--obrona); }
+
+  .prep-select{
+    width:100%; background: var(--bg-panel-raised); border:1px solid var(--line); color: var(--text);
+    border-radius: var(--radius-sm); padding:10px; font-size:14.5px; font-family: var(--font-body);
+  }
+
+  .special-hand{ margin-bottom:18px; }
+  .special-hand h3{
+    font-family: var(--font-display); font-size:13px; text-transform:uppercase;
+    letter-spacing:.06em; color: var(--text-dim); margin:0 0 9px;
+  }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{
+    background: var(--bg-panel-raised); border:1px solid var(--line); border-radius:999px;
+    padding:5px 8px 5px 12px; font-size:12.5px; color: var(--text); display:flex; align-items:center; gap:6px;
+  }
+  .chip-remove{ background:none; border:none; color: var(--text-faint); font-size:12px; padding:2px 4px; line-height:1; }
+  .chip-remove:hover{ color: var(--atak); }
+
+  .ghost-btn{
+    display:block; width:100%; background: transparent; border: 1px solid var(--line);
+    color: var(--text-dim); border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 13.5px; font-weight:500; margin-bottom:10px; text-align:center;
+  }
+  .ghost-btn:hover{ border-color: var(--text-faint); color: var(--text); }
+
+  .big-btn{
+    display:block; width:100%; margin-top:14px;
+    background: linear-gradient(135deg, var(--atak), var(--obrona));
+    color:#fff; border:none; border-radius: var(--radius);
+    padding: 16px; font-family: var(--font-display); font-size:15.5px;
+    font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+  }
+
+  /* ---------- pole bitwy ---------- */
+  .battlefield{
+    background: var(--bg-panel); border:1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 8px; min-height: 360px; display:flex; flex-direction:column; justify-content:center;
+  }
+  .clash-line{
+    height:1px; background: linear-gradient(90deg, transparent, var(--atak), var(--obrona), transparent);
+    margin: 14px 0; opacity:.6;
+  }
+  .unit-row{ margin-bottom: 10px; }
+  .unit-row.dead{ opacity:.25; }
+  .unit-row-icons{ display:flex; flex-wrap:wrap; gap:2px; min-height:22px; }
+  .unit-dot{ font-size:16px; line-height:1; }
+  .unit-extra{ font-size:11px; color: var(--text-faint); align-self:center; margin-left:4px; }
+  .unit-row-meta{ display:flex; justify-content:space-between; font-size:11.5px; color: var(--text-dim); margin-top:2px; }
+  .unit-hpbar{ height:4px; background: var(--bg-panel-raised); border-radius:2px; margin-top:4px; overflow:hidden; }
+  .unit-hpbar-fill{ height:100%; background: var(--atak); transition: width .5s ease; }
+
+  /* ---------- karty w walce ---------- */
+  .cards-bar{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .battle-card-btn{
+    flex:1 1 calc(50% - 8px); background: rgba(232,88,61,.12); border:1px solid var(--atak);
+    color:#ffb3a3; border-radius: var(--radius-sm); padding:12px; font-size:13px; font-weight:600;
+    text-align:center;
+  }
+  .battle-card-btn:hover{ background: rgba(232,88,61,.22); }
+  .battle-card-btn.used{ opacity:.35; border-color: var(--line); color: var(--text-faint); background:none; }
+  .bc-status{ display:block; font-size:10.5px; font-weight:400; margin-top:3px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="config-banner" class="hidden" style="background:#2a1c1c;border:1px solid var(--atak);color:#f3c9c0;border-radius:8px;padding:14px;margin-bottom:20px;font-size:13.5px;">
+    ⚠️ Brak konfiguracji Firebase w wspolne.js
+  </div>
+
+  <!-- ===================== PRZYGOTOWANIE ===================== -->
+  <section id="view-prep" class="hidden">
+    <p class="eyebrow" id="prep-role-label">Rola</p>
+    <h1>Przygotowanie do walki</h1>
+    <p class="sub">Przeciwnik: <strong id="prep-opponent-name">—</strong></p>
+
+    <div id="prep-form">
+      <div class="stat-card">
+        <h3 class="section-label">Twoje wojska na tym polu</h3>
+        <div class="shop-row"><label for="prep-own-wojownicy">Wojownicy</label><input type="number" id="prep-own-wojownicy" min="0" value="0"></div>
+        <div class="shop-row"><label for="prep-own-lancjerzy">Lancjerzy</label><input type="number" id="prep-own-lancjerzy" min="0" value="0"></div>
+        <div class="shop-row"><label for="prep-own-lucznicy">Łucznicy</label><input type="number" id="prep-own-lucznicy" min="0" value="0"></div>
+      </div>
+
+      <div class="stat-card">
+        <h3 class="section-label">Wojska sojusznika (opcjonalnie)</h3>
+        <select id="prep-ally-select" class="prep-select"></select>
+        <div id="prep-ally-fields" class="hidden" style="margin-top:10px;">
+          <div class="shop-row"><label for="prep-ally-wojownicy">Wojownicy</label><input type="number" id="prep-ally-wojownicy" min="0" value="0"></div>
+          <div class="shop-row"><label for="prep-ally-lancjerzy">Lancjerzy</label><input type="number" id="prep-ally-lancjerzy" min="0" value="0"></div>
+          <div class="shop-row"><label for="prep-ally-lucznicy">Łucznicy</label><input type="number" id="prep-ally-lucznicy" min="0" value="0"></div>
+        </div>
+      </div>
+
+      <div class="special-hand">
+        <h3>Karty specjalne wnoszone do walki</h3>
+        <div class="chip-row" id="prep-cards-list"></div>
+        <button class="ghost-btn" id="prep-add-card-btn" style="margin-top:10px;">➕ Dodaj kartę do walki</button>
+      </div>
+
+      <button class="big-btn" id="prep-confirm-btn">Zatwierdź przygotowania</button>
+    </div>
+
+    <p class="round-label" id="prep-status"></p>
+  </section>
+
+  <!-- ===================== WALKA ===================== -->
+  <section id="view-fighting" class="hidden">
+    <p class="round-label">Tik #<span id="tick-num">0</span></p>
+    <div class="battlefield">
+      <div id="enemy-rows"></div>
+      <div class="clash-line"></div>
+      <div id="my-rows"></div>
+    </div>
+    <p class="round-label" id="opp-cards-hint"></p>
+    <div class="cards-bar" id="my-cards-bar"></div>
+  </section>
+
+  <!-- ===================== WYNIK ===================== -->
+  <section id="view-finished" class="hidden">
+    <div style="text-align:center; padding: 60px 0 20px;">
+      <h1 id="finish-title" style="font-size:32px;">—</h1>
+      <div id="finish-summary" class="sub"></div>
+      <button class="big-btn" id="finish-return-btn">Wróć do gry</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   PRZYKŁADOWE KARTY DO WALKI — tymczasowe, do testów.
+   ============================================================ */
+const BATTLE_CARD_DB = {
+  "701": { name: "Podwojenie ataku", desc: "Twoje jednostki zadają 2x obrażeń przez 5 tików", type: "atkMult", value: 2, duration: 5 },
+  "702": { name: "Zamrożenie czasu", desc: "Wrogie jednostki nie zadają obrażeń przez 3 tiki", type: "freezeEnemy", duration: 3 },
+  "703": { name: "Uzdrowienie", desc: "Przywraca 50 PŻ aktualnie walczącej jednostce", type: "heal", value: 50 }
+};
+
+const UNIT_ORDER = ["wojownicy", "lancjerzy", "lucznicy"];
+const UNIT_LABEL = { wojownicy: "Wojownicy", lancjerzy: "Lancjerzy", lucznicy: "Łucznicy" };
+const UNIT_ICON  = { wojownicy: "⚔️", lancjerzy: "🔱", lucznicy: "🏹" };
+const TICK_MS = 1000;
+
+document.title = GAME_TITLE;
+const el = (id) => document.getElementById(id);
+if (!isConfigured) el("config-banner").classList.remove("hidden");
+
+let battle = null;
+let battleLoaded = false;
+let playersData = {};
+let playersLoaded = false;
+let identity = getMyIdentity();
+let navigating = false;
+let fightStarting = false;
+let tickInterval = null;
+
+let myPrepAllyId = null;
+let myPrepCards = [];
+
+function playersByTeam(team) { return playersByTeamFrom(playersData, team); }
+function opponentId() {
+  if (!battle) return null;
+  return identity.id === battle.attackerId ? battle.defenderId : battle.attackerId;
+}
+function showView(name) {
+  ["prep", "fighting", "finished"].forEach(v => el("view-" + v).classList.toggle("hidden", v !== name));
+}
+
+/* ---------- routing ---------- */
+function route() {
+  if (!isConfigured || navigating) return;
+  if (!battleLoaded || !playersLoaded) return;
+
+  if (!battle || !battle.status) { navigating = true; window.location.href = "gra.html"; return; }
+  if (identity.id !== battle.attackerId && identity.id !== battle.defenderId) { navigating = true; window.location.href = "gra.html"; return; }
+
+  if (battle.status === "prep") {
+    showView("prep");
+    renderPrep();
+    maybeStartFight();
+  } else if (battle.status === "fighting") {
+    showView("fighting");
+    renderFighting();
+    startTickLoopIfAttacker();
+  } else if (battle.status === "finished") {
+    stopTickLoop();
+    showView("finished");
+    renderFinished();
+  } else {
+    navigating = true; window.location.href = "gra.html";
+  }
+}
+
+/* ============================================================
+   PRZYGOTOWANIE
+   ============================================================ */
+function renderPrep() {
+  const opp = playersData[opponentId()];
+  el("prep-opponent-name").textContent = opp ? opp.name : "…";
+  el("prep-role-label").textContent = identity.id === battle.attackerId ? "Atakujesz" : "Bronisz się";
+
+  const me = playersData[identity.id];
+  const teammates = me ? playersByTeam(me.team).filter(p => p.id !== identity.id) : [];
+  const allySelect = el("prep-ally-select");
+  allySelect.innerHTML = '<option value="">Brak sojusznika</option>' +
+    teammates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+  allySelect.value = myPrepAllyId || "";
+  el("prep-ally-fields").classList.toggle("hidden", !myPrepAllyId);
+
+  el("prep-cards-list").innerHTML = myPrepCards.length
+    ? myPrepCards.map((code, i) => `<span class="chip">${escapeHtml((BATTLE_CARD_DB[code] && BATTLE_CARD_DB[code].name) || code)}<button class="chip-remove" data-i="${i}">✕</button></span>`).join("")
+    : `<span class="roster-empty">Brak wniesionych kart</span>`;
+  el("prep-cards-list").querySelectorAll(".chip-remove").forEach(btn => {
+    btn.addEventListener("click", () => { myPrepCards.splice(parseInt(btn.dataset.i), 1); renderPrep(); });
+  });
+
+  const myEntry = battle.prep && battle.prep[identity.id];
+  const oppEntry = battle.prep && battle.prep[opponentId()];
+  const myReady = myEntry && myEntry.ready;
+  const oppReady = oppEntry && oppEntry.ready;
+
+  el("prep-form").classList.toggle("hidden", !!myReady);
+  el("prep-status").textContent = myReady
+    ? (oppReady ? "Obaj gotowi — walka zaraz się zacznie…" : "Czekasz na przeciwnika…")
+    : "";
+}
+
+el("prep-ally-select").addEventListener("change", (e) => { myPrepAllyId = e.target.value || null; renderPrep(); });
+
+el("prep-add-card-btn").addEventListener("click", () => {
+  const raw = prompt("Podaj kod karty specjalnej, którą wnosisz do tej walki:");
+  if (!raw) return;
+  const code = raw.trim();
+  if (!BATTLE_CARD_DB[code]) { alert("Nieznany kod karty do walki: " + code); return; }
+  if (myPrepCards.includes(code)) { alert("Ta karta jest już dodana."); return; }
+  myPrepCards.push(code);
+  renderPrep();
+});
+
+el("prep-confirm-btn").addEventListener("click", confirmPrep);
+
+async function confirmPrep() {
+  const own = {
+    wojownicy: parseInt(el("prep-own-wojownicy").value) || 0,
+    lancjerzy: parseInt(el("prep-own-lancjerzy").value) || 0,
+    lucznicy: parseInt(el("prep-own-lucznicy").value) || 0
+  };
+  const ally = myPrepAllyId ? {
+    wojownicy: parseInt(el("prep-ally-wojownicy").value) || 0,
+    lancjerzy: parseInt(el("prep-ally-lancjerzy").value) || 0,
+    lucznicy: parseInt(el("prep-ally-lucznicy").value) || 0
+  } : { wojownicy: 0, lancjerzy: 0, lucznicy: 0 };
+
+  const total = own.wojownicy + own.lancjerzy + own.lucznicy + ally.wojownicy + ally.lancjerzy + ally.lucznicy;
+  if (total <= 0) { alert("Wpisz przynajmniej jedną jednostkę."); return; }
+
+  const me = playersData[identity.id];
+  const heldCards = (me && me.specialCardCount) || 0;
+  if (myPrepCards.length > heldCards) { alert("Nie masz tylu kart specjalnych w ręku."); return; }
+
+  if (myPrepCards.length > 0) {
+    await db.collection("players").doc(identity.id).update({
+      specialCardCount: firebase.firestore.FieldValue.increment(-myPrepCards.length)
+    });
+  }
+
+  await db.collection("battle").doc("current").update({
+    ["prep." + identity.id]: {
+      ready: true,
+      own, allyId: myPrepAllyId || null, ally,
+      specialCards: myPrepCards
+    }
+  });
+}
+
+function maybeStartFight() {
+  if (identity.id !== battle.attackerId) return;
+  if (battle.status !== "prep") return;
+  const a = battle.prep && battle.prep[battle.attackerId];
+  const d = battle.prep && battle.prep[battle.defenderId];
+  if (!a || !d || !a.ready || !d.ready) return;
+  if (fightStarting) return;
+  fightStarting = true;
+  buildAndStartFight();
+}
+
+function buildSideState(playerId, prepEntry) {
+  const types = {};
+  UNIT_ORDER.forEach((t) => {
+    const stacks = [];
+    if (prepEntry.own[t] > 0) {
+      const stats = effectiveUnitStats(playersData[playerId], t);
+      stacks.push({ owner: playerId, count: prepEntry.own[t], atk: stats.atk, perHp: stats.hp, curHp: stats.hp });
+    }
+    if (prepEntry.allyId && prepEntry.ally[t] > 0) {
+      const stats = effectiveUnitStats(playersData[prepEntry.allyId], t);
+      stacks.push({ owner: prepEntry.allyId, count: prepEntry.ally[t], atk: stats.atk, perHp: stats.hp, curHp: stats.hp });
+    }
+    types[t] = { stacks };
+  });
+  const broughtCards = {};
+  (prepEntry.specialCards || []).forEach((code) => {
+    const def = BATTLE_CARD_DB[code];
+    broughtCards[code] = { name: def ? def.name : code, used: false, requested: false };
+  });
+  return { types, activeEffects: [], broughtCards };
+}
+
+async function buildAndStartFight() {
+  const fight = {
+    tick: 0,
+    winnerId: null,
+    log: [],
+    sides: {
+      [battle.attackerId]: buildSideState(battle.attackerId, battle.prep[battle.attackerId]),
+      [battle.defenderId]: buildSideState(battle.defenderId, battle.prep[battle.defenderId])
+    }
+  };
+  await db.collection("battle").doc("current").update({ status: "fighting", fight });
+}
+
+/* ============================================================
+   SILNIK WALKI (deterministyczny, oparty o tiki)
+   ============================================================ */
+function totalCount(typeState) { return typeState.stacks.reduce((s, st) => s + st.count, 0); }
+function frontType(sideState) {
+  for (const t of UNIT_ORDER) { if (totalCount(sideState.types[t]) > 0) return t; }
+  return null;
+}
+function sideHasUnits(sideState) { return UNIT_ORDER.some((t) => totalCount(sideState.types[t]) > 0); }
+function isFrozen(sideState) { return sideState.activeEffects.some((e) => e.type === "frozen"); }
+
+function sideDamage(sideState) {
+  if (isFrozen(sideState)) return 0;
+  const ft = frontType(sideState);
+  let dmg = 0;
+  if (ft === "wojownicy" || ft === "lancjerzy") {
+    dmg += sideState.types[ft].stacks.reduce((s, st) => s + st.count * st.atk, 0);
+  }
+  if (totalCount(sideState.types.lucznicy) > 0) {
+    dmg += sideState.types.lucznicy.stacks.reduce((s, st) => s + st.count * st.atk, 0);
+  }
+  const mult = sideState.activeEffects.filter((e) => e.type === "atkMult").reduce((m, e) => m * e.value, 1);
+  return dmg * mult;
+}
+
+function applyDamageToType(stacks, damage) {
+  let dmg = damage;
+  const result = stacks.map((s) => Object.assign({}, s));
+  for (let i = 0; i < result.length && dmg > 0; i++) {
+    const s = result[i];
+    if (s.count <= 0) { s.count = 0; s.curHp = 0; continue; }
+    const pool = (s.count - 1) * s.perHp + s.curHp;
+    if (dmg >= pool) {
+      dmg -= pool;
+      s.count = 0; s.curHp = 0;
+    } else {
+      const remainingPool = pool - dmg;
+      dmg = 0;
+      s.count = Math.max(1, Math.ceil(remainingPool / s.perHp));
+      s.curHp = remainingPool - (s.count - 1) * s.perHp;
+      if (s.curHp <= 0) s.curHp = s.perHp;
+    }
+  }
+  return result;
+}
+
+function processBroughtCards(sideState, otherSideState, tick) {
+  Object.keys(sideState.broughtCards).forEach((code) => {
+    const c = sideState.broughtCards[code];
+    if (c.requested && !c.used) {
+      const def = BATTLE_CARD_DB[code];
+      if (def) {
+        if (def.type === "heal") {
+          const ft = frontType(sideState);
+          if (ft) {
+            const idx = sideState.types[ft].stacks.findIndex((s) => s.count > 0);
+            if (idx >= 0) {
+              const s = sideState.types[ft].stacks[idx];
+              s.curHp = Math.min(s.perHp, s.curHp + def.value);
+            }
+          }
+        } else if (def.type === "freezeEnemy") {
+          otherSideState.activeEffects.push({ type: "frozen", untilTick: tick + (def.duration || 0) });
+        } else if (def.type === "atkMult") {
+          sideState.activeEffects.push({ type: "atkMult", value: def.value, untilTick: tick + (def.duration || 0) });
+        }
+      }
+      c.used = true;
+      c.requested = false;
+    }
+  });
+}
+
+function computeNextTick(fight, attackerId, defenderId) {
+  const next = JSON.parse(JSON.stringify(fight));
+  const tick = next.tick + 1;
+  const A = next.sides[attackerId];
+  const D = next.sides[defenderId];
+
+  processBroughtCards(A, D, tick);
+  processBroughtCards(D, A, tick);
+
+  [A, D].forEach((s) => { s.activeEffects = s.activeEffects.filter((e) => e.untilTick > tick); });
+
+  const dmgA = sideDamage(A);
+  const dmgD = sideDamage(D);
+  const ftA = frontType(A);
+  const ftD = frontType(D);
+
+  if (ftD && dmgA > 0) D.types[ftD].stacks = applyDamageToType(D.types[ftD].stacks, dmgA);
+  if (ftA && dmgD > 0) A.types[ftA].stacks = applyDamageToType(A.types[ftA].stacks, dmgD);
+
+  next.tick = tick;
+  next.log = (next.log || []).concat(["Tik " + tick + ": " + Math.round(dmgA) + " / " + Math.round(dmgD) + " obrażeń"]).slice(-20);
+
+  const aAlive = sideHasUnits(A);
+  const dAlive = sideHasUnits(D);
+  if (!aAlive && !dAlive) next.winnerId = "draw";
+  else if (!dAlive) next.winnerId = attackerId;
+  else if (!aAlive) next.winnerId = defenderId;
+
+  return next;
+}
+
+function startTickLoopIfAttacker() {
+  if (!battle || identity.id !== battle.attackerId) return;
+  if (tickInterval) return;
+  tickInterval = setInterval(doTick, TICK_MS);
+}
+function stopTickLoop() {
+  if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+}
+async function doTick() {
+  if (!battle || battle.status !== "fighting") { stopTickLoop(); return; }
+  const next = computeNextTick(battle.fight, battle.attackerId, battle.defenderId);
+  if (next.winnerId) {
+    stopTickLoop();
+    await db.collection("battle").doc("current").update({ fight: next, status: "finished" });
+  } else {
+    await db.collection("battle").doc("current").update({ fight: next });
+  }
+}
+
+async function activateCard(code) {
+  const mySide = battle.fight.sides[identity.id];
+  if (!mySide || !mySide.broughtCards[code] || mySide.broughtCards[code].used) return;
+  await db.collection("battle").doc("current").update({
+    ["fight.sides." + identity.id + ".broughtCards." + code + ".requested"]: true
+  });
+}
+
+/* ============================================================
+   RENDEROWANIE WALKI
+   ============================================================ */
+function renderSideRows(containerId, sideState, order) {
+  const wrap = el(containerId);
+  const ft = frontType(sideState);
+  wrap.innerHTML = order.map((t) => {
+    const typeState = sideState.types[t];
+    const count = totalCount(typeState);
+    const frontStack = typeState.stacks.find((s) => s.count > 0);
+    const hpPct = frontStack ? Math.max(0, Math.round((frontStack.curHp / frontStack.perHp) * 100)) : 0;
+    const isFront = ft === t && count > 0;
+    const dots = Array.from({ length: Math.min(count, 12) }).map(() => '<span class="unit-dot">' + UNIT_ICON[t] + "</span>").join("");
+    return '<div class="unit-row ' + (count === 0 ? "dead" : "") + '">' +
+      '<div class="unit-row-icons">' + dots + (count > 12 ? '<span class="unit-extra">+' + (count - 12) + "</span>" : "") + "</div>" +
+      '<div class="unit-row-meta"><span>' + UNIT_LABEL[t] + '</span><span>' + count + "</span></div>" +
+      (isFront ? '<div class="unit-hpbar"><div class="unit-hpbar-fill" style="width:' + hpPct + '%"></div></div>' : "") +
+      "</div>";
+  }).join("");
+}
+
+function renderFighting() {
+  const f = battle.fight;
+  if (!f) return;
+  const me = f.sides[identity.id];
+  const opp = f.sides[opponentId()];
+  if (!me || !opp) return;
+
+  el("tick-num").textContent = f.tick;
+
+  renderSideRows("enemy-rows", opp, [...UNIT_ORDER].reverse());
+  renderSideRows("my-rows", me, UNIT_ORDER);
+
+  const codes = Object.keys(me.broughtCards || {});
+  const wrap = el("my-cards-bar");
+  wrap.innerHTML = codes.length
+    ? codes.map((code) => {
+        const c = me.broughtCards[code];
+        return '<button class="battle-card-btn ' + (c.used ? "used" : "") + '" data-code="' + code + '" ' + (c.used ? "disabled" : "") + '>' +
+          '<span class="bc-name">' + escapeHtml(c.name) + "</span>" +
+          (c.used ? '<span class="bc-status">użyta</span>' : "") +
+          "</button>";
+      }).join("")
+    : '<span class="roster-empty">Brak kart w tej walce</span>';
+  wrap.querySelectorAll(".battle-card-btn:not(.used)").forEach((btn) => {
+    btn.addEventListener("click", () => activateCard(btn.dataset.code));
+  });
+
+  const oppCardsLeft = Object.values(opp.broughtCards || {}).filter((c) => !c.used).length;
+  el("opp-cards-hint").textContent = oppCardsLeft > 0 ? ("Przeciwnik ma jeszcze " + oppCardsLeft + " kart w zanadrzu") : "";
+}
+
+function summarizeUnits(sideState) {
+  return UNIT_ORDER.map((t) => totalCount(sideState.types[t]) + " " + UNIT_LABEL[t].toLowerCase()).join(", ");
+}
+
+function renderFinished() {
+  const f = battle.fight;
+  if (!f) return;
+  const won = f.winnerId === identity.id;
+  const draw = f.winnerId === "draw";
+  el("finish-title").textContent = draw ? "Remis!" : (won ? "🏆 Wygrałeś!" : "💀 Przegrałeś");
+  el("finish-title").style.color = draw ? "var(--text)" : (won ? "#4caf7d" : "var(--atak)");
+
+  const me = f.sides[identity.id];
+  const opp = f.sides[opponentId()];
+  el("finish-summary").innerHTML =
+    "<p>Zostało Ci: " + summarizeUnits(me) + "</p>" +
+    "<p>Przeciwnikowi zostało: " + summarizeUnits(opp) + "</p>";
+}
+
+el("finish-return-btn").addEventListener("click", returnToGame);
+async function returnToGame() {
+  stopTickLoop();
+  navigating = true;
+  try { await db.collection("battle").doc("current").delete(); } catch (e) {}
+  window.location.href = "gra.html";
+}
+
+/* ---------- start ---------- */
+if (isConfigured) {
+  db.collection("battle").doc("current").onSnapshot((doc) => {
+    battle = doc.exists ? doc.data() : null;
+    battleLoaded = true;
+    route();
+  }, (err) => { console.error("Błąd połączenia (battle):", err); });
+
+  db.collection("players").onSnapshot((snap) => {
+    playersData = {};
+    snap.forEach((doc) => { playersData[doc.id] = doc.data(); });
+    playersLoaded = true;
+    route();
+  }, (err) => { console.error("Błąd połączenia (players):", err); });
+}
+</script>
+</body>
+</html>
