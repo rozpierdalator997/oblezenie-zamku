@@ -253,18 +253,19 @@ function showView(name) {
 }
 
 let gameState = { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0 };
-let playersData = {}; // { "atak-1": {team,slot,name,gold,statMods,specialCards}, ... }
+let playersData = {}; // { "atak-1": {team,slot,name,gold,statMods,specialCardCount}, ... }
 let gameStateLoaded = false;
 let playersLoaded = false;
 
 let identity = getMyIdentity();
 let uiSelectedTeam = null; // stan tylko lokalny, uzywany miedzy widokiem 2 i 3
+let navigating = false; // zabezpieczenie przed wielokrotnym przekierowaniem z tej samej karty
 
 function playersByTeam(team) { return playersByTeamFrom(playersData, team); }
 
 /* ---------- routing ---------- */
 function route() {
-  if (!isConfigured) return;
+  if (!isConfigured || navigating) return;
   if (!gameStateLoaded || !playersLoaded) return; // czekamy, az obie paczki danych sie zaladuja
 
   if (!gameState.lobbyOpened) {
@@ -273,7 +274,7 @@ function route() {
   }
 
   if (identity.id && playersData[identity.id]) {
-    if (gameState.started) { window.location.href = "gra.html"; return; }
+    if (gameState.started) { navigating = true; window.location.href = "gra.html"; return; }
     showView("waiting"); renderWaiting();
     return;
   }
@@ -360,7 +361,7 @@ async function joinSlot(team, slot, defaultName) {
       team, slot, name,
       gold: 0,
       statMods: defaultStatMods(),
-      specialCards: []
+      specialCardCount: 0
     });
   }
   setMyIdentity(team, slot);
