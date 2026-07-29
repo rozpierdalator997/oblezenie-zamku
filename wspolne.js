@@ -65,6 +65,18 @@ function defaultStatMods() {
   };
 }
 
+/* ---------- bazowe statystyki jednostki (jednakowe dla wszystkich typow na razie) ---------- */
+/* Zmien te liczby, gdy bedziesz mial docelowy balans. */
+const BASE_UNIT_STATS = { hp: 100, atk: 20 };
+
+function effectiveUnitStats(playerData, unitType) {
+  const mods = (playerData && playerData.statMods && playerData.statMods[unitType]) || { atak: 0, zdrowie: 0 };
+  return {
+    hp: Math.max(1, BASE_UNIT_STATS.hp + (mods.zdrowie || 0)),
+    atk: Math.max(0, BASE_UNIT_STATS.atk + (mods.atak || 0))
+  };
+}
+
 /* ---------- zakonicz rozgrywke (pelny reset, uzywane na kazdym ekranie) ---------- */
 async function endGame() {
   if (!confirm("Zakończyć rozgrywkę? Wszyscy gracze będą musieli dołączyć od nowa.")) return;
