@@ -161,6 +161,29 @@
     background: var(--bg-panel); border: 1px dashed var(--line); border-radius: var(--radius);
     padding: 26px 20px; text-align:center; color: var(--text-faint); font-size: 14px; line-height:1.6;
   }
+
+  /* ---------- panel zakupow ---------- */
+  .shop-panel{
+    background: var(--bg-panel); border:1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin: -2px 0 10px;
+  }
+  .shop-row{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:8px 0; border-top:1px solid var(--line);
+  }
+  .shop-row:first-child{ border-top:none; }
+  .shop-row label{ font-size:14px; color: var(--text); }
+  .shop-price{ font-size:11.5px; color: var(--text-faint); display:block; }
+  .shop-row input[type="number"]{
+    width:64px; background: var(--bg-panel-raised); border:1px solid var(--line); color: var(--text);
+    border-radius: var(--radius-sm); padding:8px; font-size:15px; text-align:center;
+    font-family: var(--font-body);
+  }
+  .shop-row input[type="number"]:focus{ outline: 2px solid var(--obrona); }
+  .shop-total{
+    font-family: var(--font-display); font-size:16px; font-weight:600;
+    text-align:right; margin:12px 0 14px; color:#f5c451;
+  }
 </style>
 </head>
 <body>
@@ -189,14 +212,22 @@
 
   <div class="special-hand">
     <h3>🎴 Twoje karty specjalne (<span id="hand-count">0</span>/6)</h3>
-    <div class="chip-row" id="special-chips"></div>
+    <button class="ghost-btn" id="discard-special-btn">Odrzuć jedną kartę</button>
   </div>
 
   <div id="my-turn-actions" class="hidden">
     <button class="action-btn" id="add-card-btn">➕ Dodaj kartę</button>
-    <button class="action-btn" id="buy-troops-btn">🪖 Kupuję wojska</button>
-    <button class="action-btn" id="buy-special-btn">🎴 Kupuję kartę specjalną</button>
-    <button class="action-btn" id="move-troops-btn">↔️ Przenieś wojska</button>
+
+    <button class="action-btn" id="shop-btn">🛒 Zakupy</button>
+    <div id="shop-panel" class="shop-panel hidden">
+      <div class="shop-row"><label for="shop-wojownicy">Wojownicy <span class="shop-price" id="price-wojownicy"></span></label><input type="number" id="shop-wojownicy" min="0" value="0"></div>
+      <div class="shop-row"><label for="shop-lancjerzy">Lancjerzy <span class="shop-price" id="price-lancjerzy"></span></label><input type="number" id="shop-lancjerzy" min="0" value="0"></div>
+      <div class="shop-row"><label for="shop-lucznicy">Łucznicy <span class="shop-price" id="price-lucznicy"></span></label><input type="number" id="shop-lucznicy" min="0" value="0"></div>
+      <div class="shop-row"><label for="shop-specjalne">Karty specjalne <span class="shop-price" id="price-specjalne"></span></label><input type="number" id="shop-specjalne" min="0" value="0"></div>
+      <div class="shop-total">Koszt łączny: <strong id="shop-total-value">0</strong> złota</div>
+      <button class="ghost-btn" id="shop-confirm-btn" style="border-color:var(--obrona);color:var(--text);">Potwierdź zakup</button>
+      <button class="ghost-btn" id="shop-cancel-btn">Anuluj</button>
+    </div>
 
     <div id="attack-section"></div>
 
@@ -237,6 +268,7 @@ let gameStateLoaded = false;
 let playersLoaded = false;
 let identity = getMyIdentity();
 let pendingAttackType = null; // "brama_glowna" | "brama_tylna" | "zwykly" | null
+let navigating = false; // zabezpieczenie przed wielokrotnym przekierowaniem z tej samej karty
 
 function playersByTeam(team) { return playersByTeamFrom(playersData, team); }
 
@@ -246,10 +278,10 @@ function attackTypeLabel(type) {
 
 /* ---------- ochrona dostepu: jesli stan gry nie pasuje, wracamy do lobby ---------- */
 function checkAccessAndRender() {
-  if (!isConfigured) return;
+  if (!isConfigured || navigating) return;
   if (!gameStateLoaded || !playersLoaded) return; // czekamy, az obie paczki danych sie zaladuja
-  if (!gameState.lobbyOpened || !gameState.started) { window.location.href = "index.html"; return; }
-  if (!identity.id || !playersData[identity.id]) { window.location.href = "index.html"; return; }
+  if (!gameState.lobbyOpened || !gameState.started) { navigating = true; window.location.href = "index.html"; return; }
+  if (!identity.id || !playersData[identity.id]) { navigating = true; window.location.href = "index.html"; return; }
   renderAll();
 }
 
@@ -284,14 +316,10 @@ function renderAll() {
     return `<div class="unit-stat-row"><span class="unit-stat-name">${UNIT_LABEL[u]}</span><span class="unit-stat-mods">atak ${fmt(a)} · zdrowie ${fmt(z)}</span></div>`;
   }).join("");
 
-  const hand = me.specialCards || [];
-  el("hand-count").textContent = hand.length;
-  el("special-chips").innerHTML = hand.length
-    ? hand.map(code => `<span class="chip">${escapeHtml(code)}<button class="chip-remove" data-code="${escapeHtml(code)}">✕</button></span>`).join("")
-    : `<span class="roster-empty">Brak kart specjalnych</span>`;
-  el("special-chips").querySelectorAll(".chip-remove").forEach(btn => {
-    btn.addEventListener("click", () => removeSpecialCard(btn.dataset.code));
-  });
+  const specialCount = me.specialCardCount || 0;
+  el("hand-count").textContent = specialCount;
+  el("discard-special-btn").disabled = specialCount <= 0;
+  el("discard-special-btn").style.opacity = specialCount <= 0 ? .5 : 1;
 
   const endBtn = el("end-turn-btn");
   endBtn.style.setProperty("--team-color", "var(--" + me.team + ")");
@@ -359,50 +387,77 @@ async function addCard() {
     alert("Zastosowano: " + card.name + " (" + UNIT_LABEL[card.unit] + " " + card.stat + " " + (card.value >= 0 ? "+" : "") + card.value + ")");
   } else if (card.type === "specjalna") {
     const me = playersData[identity.id];
-    const hand = me.specialCards || [];
-    if (!hand.includes(code)) { alert('Nie masz tej karty w swoim ręku — najpierw kup ją przyciskiem "Kupuję kartę specjalną".'); return; }
+    const count = me.specialCardCount || 0;
+    if (count <= 0) { alert('Nie masz żadnych kart specjalnych w ręku — najpierw kup przynajmniej jedną przez "🛒 Zakupy".'); return; }
     const path = "statMods." + card.unit + "." + card.stat;
     await ref.update({
       [path]: firebase.firestore.FieldValue.increment(card.value),
-      specialCards: firebase.firestore.FieldValue.arrayRemove(code)
+      specialCardCount: firebase.firestore.FieldValue.increment(-1)
     });
-    alert("Zagrano kartę specjalną: " + card.name + " (" + UNIT_LABEL[card.unit] + " " + card.stat + " " + (card.value >= 0 ? "+" : "") + card.value + "). Karta zniknęła z Twojej ręki.");
+    alert("Zagrano kartę specjalną: " + card.name + " (" + UNIT_LABEL[card.unit] + " " + card.stat + " " + (card.value >= 0 ? "+" : "") + card.value + "). Liczba kart w ręku spadła o 1.");
   }
 }
 
-async function buyTroops() {
-  const w = parseInt(prompt("Ilu wojowników kupujesz? (" + UNIT_PRICES.wojownicy + " złota/szt.)", "0")) || 0;
-  const l = parseInt(prompt("Ilu lancjerów kupujesz? (" + UNIT_PRICES.lancjerzy + " złota/szt.)", "0")) || 0;
-  const lu = parseInt(prompt("Ilu łuczników kupujesz? (" + UNIT_PRICES.lucznicy + " złota/szt.)", "0")) || 0;
-  const total = w * UNIT_PRICES.wojownicy + l * UNIT_PRICES.lancjerzy + lu * UNIT_PRICES.lucznicy;
-  if (total <= 0) return;
-  await db.collection("players").doc(identity.id).update({ gold: firebase.firestore.FieldValue.increment(-total) });
-  alert("Kupiono: " + w + " wojowników, " + l + " lancjerów, " + lu + " łuczników za łącznie " + total + " złota.\nPamiętaj, żeby fizycznie dodać jednostki na planszy.");
+function openShop() {
+  ["shop-wojownicy", "shop-lancjerzy", "shop-lucznicy", "shop-specjalne"].forEach(id => { el(id).value = 0; });
+  el("price-wojownicy").textContent = "(" + UNIT_PRICES.wojownicy + "/szt.)";
+  el("price-lancjerzy").textContent = "(" + UNIT_PRICES.lancjerzy + "/szt.)";
+  el("price-lucznicy").textContent = "(" + UNIT_PRICES.lucznicy + "/szt.)";
+  el("price-specjalne").textContent = "(" + SPECIAL_CARD_COST + "/szt.)";
+  updateShopTotal();
+  el("shop-panel").classList.remove("hidden");
 }
+function closeShop() {
+  el("shop-panel").classList.add("hidden");
+}
+function updateShopTotal() {
+  const w = parseInt(el("shop-wojownicy").value) || 0;
+  const l = parseInt(el("shop-lancjerzy").value) || 0;
+  const lu = parseInt(el("shop-lucznicy").value) || 0;
+  const sp = parseInt(el("shop-specjalne").value) || 0;
+  const total = w * UNIT_PRICES.wojownicy + l * UNIT_PRICES.lancjerzy + lu * UNIT_PRICES.lucznicy + sp * SPECIAL_CARD_COST;
+  el("shop-total-value").textContent = total;
+}
+async function confirmShop() {
+  const w = parseInt(el("shop-wojownicy").value) || 0;
+  const l = parseInt(el("shop-lancjerzy").value) || 0;
+  const lu = parseInt(el("shop-lucznicy").value) || 0;
+  const sp = parseInt(el("shop-specjalne").value) || 0;
+  const total = w * UNIT_PRICES.wojownicy + l * UNIT_PRICES.lancjerzy + lu * UNIT_PRICES.lucznicy + sp * SPECIAL_CARD_COST;
+  if (total <= 0) { closeShop(); return; }
 
-async function buySpecialCard() {
   const me = playersData[identity.id];
-  const hand = me.specialCards || [];
-  if (hand.length >= 6) { alert("Masz już 6 kart specjalnych — najpierw usuń jedną poniżej, żeby zrobić miejsce."); return; }
-  const code = prompt("Podaj kod/nazwę wylosowanej karty specjalnej (koszt " + SPECIAL_CARD_COST + " złota):");
-  if (!code) return;
+  const currentGold = me.gold || 0;
+  const currentSpecial = me.specialCardCount || 0;
+
+  if (total > currentGold) { alert("Nie masz tyle złota (masz " + currentGold + ", potrzebujesz " + total + ")."); return; }
+  if (currentSpecial + sp > 6) { alert("Za dużo kart specjalnych — maksymalnie 6 w ręku (masz " + currentSpecial + ", próbujesz kupić " + sp + ")."); return; }
+
   await db.collection("players").doc(identity.id).update({
-    gold: firebase.firestore.FieldValue.increment(-SPECIAL_CARD_COST),
-    specialCards: firebase.firestore.FieldValue.arrayUnion(code.trim())
+    gold: firebase.firestore.FieldValue.increment(-total),
+    specialCardCount: firebase.firestore.FieldValue.increment(sp)
   });
+
+  let summary = [];
+  if (w) summary.push(w + " wojowników");
+  if (l) summary.push(l + " lancjerów");
+  if (lu) summary.push(lu + " łuczników");
+  if (sp) summary.push(sp + " kart specjalnych");
+  alert("Kupiono: " + summary.join(", ") + " za łącznie " + total + " złota." + (w || l || lu ? "\nPamiętaj, żeby fizycznie dodać jednostki na planszy." : ""));
+  closeShop();
 }
 
-async function removeSpecialCard(code) {
-  if (!confirm("Usunąć kartę specjalną z ręki: " + code + "?")) return;
-  await db.collection("players").doc(identity.id).update({ specialCards: firebase.firestore.FieldValue.arrayRemove(code) });
-}
-
-function moveTroops() {
-  alert("Przenieś swoje jednostki na wybrane pole na planszy.\n(To czynność fizyczna — appka nie musi nic zapisywać.)");
+async function discardOneSpecialCard() {
+  const me = playersData[identity.id];
+  const count = me.specialCardCount || 0;
+  if (count <= 0) return;
+  if (!confirm("Odrzucić jedną kartę specjalną z ręki?")) return;
+  await db.collection("players").doc(identity.id).update({ specialCardCount: firebase.firestore.FieldValue.increment(-1) });
 }
 
 async function endTurn() {
   pendingAttackType = null;
+  closeShop();
   await db.collection("game").doc("state").update({
     turnCounter: firebase.firestore.FieldValue.increment(1)
   });
@@ -424,9 +479,13 @@ if (isConfigured) {
   }, (err) => { console.error("Błąd połączenia (players):", err); });
 
   el("add-card-btn").addEventListener("click", addCard);
-  el("buy-troops-btn").addEventListener("click", buyTroops);
-  el("buy-special-btn").addEventListener("click", buySpecialCard);
-  el("move-troops-btn").addEventListener("click", moveTroops);
+  el("shop-btn").addEventListener("click", openShop);
+  el("shop-cancel-btn").addEventListener("click", closeShop);
+  el("shop-confirm-btn").addEventListener("click", confirmShop);
+  ["shop-wojownicy", "shop-lancjerzy", "shop-lucznicy", "shop-specjalne"].forEach(id => {
+    el(id).addEventListener("input", updateShopTotal);
+  });
+  el("discard-special-btn").addEventListener("click", discardOneSpecialCard);
   el("end-turn-btn").addEventListener("click", endTurn);
   el("end-game-btn").addEventListener("click", endGame);
   setupGearMenu("gear-btn", "gear-menu");
