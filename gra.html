@@ -361,11 +361,35 @@ function renderAttackSection(me, round) {
   }
 }
 
-function pickTarget(defenderId) {
-  const defender = playersData[defenderId];
-  alert("Ekran walki (walka.html) pojawi się w kolejnym kroku.\n\nRodzaj ataku: " + attackTypeLabel(pendingAttackType) + "\nCel: " + (defender ? defender.name : defenderId));
+async function pickTarget(defenderId) {
+  const type = pendingAttackType;
   pendingAttackType = null;
-  renderAll();
+  if (type !== "zwykly") {
+    alert("Szturm na bramy pojawi się w kolejnym kroku — na razie dostępny jest tylko zwykły atak.");
+    renderAll();
+    return;
+  }
+  navigating = true;
+  await db.collection("battle").doc("current").set({
+    status: "prep",
+    attackerId: identity.id,
+    defenderId: defenderId,
+    prep: {
+      [identity.id]: emptyPrepEntry(),
+      [defenderId]: emptyPrepEntry()
+    }
+  });
+  window.location.href = "walka.html";
+}
+
+function emptyPrepEntry() {
+  return {
+    ready: false,
+    own: { wojownicy: 0, lancjerzy: 0, lucznicy: 0 },
+    allyId: null,
+    ally: { wojownicy: 0, lancjerzy: 0, lucznicy: 0 },
+    specialCards: []
+  };
 }
 
 /* ---------- akcje ---------- */
@@ -477,6 +501,15 @@ if (isConfigured) {
     playersLoaded = true;
     checkAccessAndRender();
   }, (err) => { console.error("Błąd połączenia (players):", err); });
+
+  db.collection("battle").doc("current").onSnapshot((doc) => {
+    if (navigating || !doc.exists) return;
+    const b = doc.data();
+    if (b.status && b.status !== "finished" && (b.attackerId === identity.id || b.defenderId === identity.id)) {
+      navigating = true;
+      window.location.href = "walka.html";
+    }
+  }, (err) => { console.error("Błąd połączenia (battle):", err); });
 
   el("add-card-btn").addEventListener("click", addCard);
   el("shop-btn").addEventListener("click", openShop);
