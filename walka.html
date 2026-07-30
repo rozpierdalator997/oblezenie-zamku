@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="wspolne.js"></script>
+<script src="karty.js"></script>
 
 <style>
   :root{
@@ -203,18 +204,18 @@
 
 <script>
 /* ============================================================
-   PRZYKŁADOWE KARTY DO WALKI — tymczasowe, do testów.
+   Baza kart żyje w osobnym pliku karty.js (stała KARTY).
+   Tutaj tylko filtrujemy karty przeznaczone do użycia w walce.
    ============================================================ */
-const BATTLE_CARD_DB = {
-  "701": { name: "Podwojenie ataku", desc: "Twoje jednostki zadają 2x obrażeń przez 5 tików", type: "atkMult", value: 2, duration: 5 },
-  "702": { name: "Zamrożenie czasu", desc: "Wrogie jednostki nie zadają obrażeń przez 3 tiki", type: "freezeEnemy", duration: 3 },
-  "703": { name: "Uzdrowienie", desc: "Przywraca 50 PŻ aktualnie walczącej jednostce", type: "heal", value: 50 }
-};
+function battleCard(code) {
+  const c = KARTY[code];
+  return (c && c.kategoria === "specjalna" && c.uzycie === "walka") ? c : null;
+}
 
 const UNIT_ORDER = ["wojownicy", "lancjerzy", "lucznicy"];
 const UNIT_LABEL = { wojownicy: "Wojownicy", lancjerzy: "Lancjerzy", lucznicy: "Łucznicy" };
 const UNIT_ICON  = { wojownicy: "⚔️", lancjerzy: "🔱", lucznicy: "🏹" };
-const TICK_MS = 5000;
+const TICK_MS = 2000; // dlugosc jednego tiku w milisekundach - zwieksz/zmniejsz wedlug potrzeb
 
 document.title = GAME_TITLE;
 const el = (id) => document.getElementById(id);
@@ -283,7 +284,7 @@ function renderPrep() {
   el("prep-ally-fields").classList.toggle("hidden", !myPrepAllyId);
 
   el("prep-cards-list").innerHTML = myPrepCards.length
-    ? myPrepCards.map((code, i) => `<span class="chip">${escapeHtml((BATTLE_CARD_DB[code] && BATTLE_CARD_DB[code].name) || code)}<button class="chip-remove" data-i="${i}">✕</button></span>`).join("")
+    ? myPrepCards.map((code, i) => `<span class="chip">${escapeHtml((battleCard(code) && battleCard(code).nazwa) || code)}<button class="chip-remove" data-i="${i}">✕</button></span>`).join("")
     : `<span class="roster-empty">Brak wniesionych kart</span>`;
   el("prep-cards-list").querySelectorAll(".chip-remove").forEach(btn => {
     btn.addEventListener("click", () => { myPrepCards.splice(parseInt(btn.dataset.i), 1); renderPrep(); });
@@ -306,7 +307,7 @@ el("prep-add-card-btn").addEventListener("click", () => {
   const raw = prompt("Podaj kod karty specjalnej, którą wnosisz do tej walki:");
   if (!raw) return;
   const code = raw.trim();
-  if (!BATTLE_CARD_DB[code]) { alert("Nieznany kod karty do walki: " + code); return; }
+  if (!battleCard(code)) { alert("Nieznany kod karty do walki: " + code); return; }
   if (myPrepCards.includes(code)) { alert("Ta karta jest już dodana."); return; }
   myPrepCards.push(code);
   renderPrep();
@@ -375,8 +376,8 @@ function buildSideState(playerId, prepEntry) {
   });
   const broughtCards = {};
   (prepEntry.specialCards || []).forEach((code) => {
-    const def = BATTLE_CARD_DB[code];
-    broughtCards[code] = { name: def ? def.name : code, used: false, requested: false };
+    const def = battleCard(code);
+    broughtCards[code] = { name: def ? def.nazwa : code, used: false, requested: false };
   });
   return { types, activeEffects: [], broughtCards };
 }
@@ -440,25 +441,37 @@ function applyDamageToType(stacks, damage) {
   return result;
 }
 
-function processBroughtCards(sideState, otherSideState, tick) {
+function processBroughtCards(sideState, otherSideState, tick, sideId, otherSideId, goldEvents) {
   Object.keys(sideState.broughtCards).forEach((code) => {
     const c = sideState.broughtCards[code];
     if (c.requested && !c.used) {
-      const def = BATTLE_CARD_DB[code];
+      const def = battleCard(code);
       if (def) {
-        if (def.type === "heal") {
+        const e = def.efekt;
+        if (e.typ === "heal") {
           const ft = frontType(sideState);
           if (ft) {
             const idx = sideState.types[ft].stacks.findIndex((s) => s.count > 0);
             if (idx >= 0) {
               const s = sideState.types[ft].stacks[idx];
-              s.curHp = Math.min(s.perHp, s.curHp + def.value);
+              s.curHp = Math.min(s.perHp, s.curHp + e.wartosc);
             }
           }
-        } else if (def.type === "freezeEnemy") {
-          otherSideState.activeEffects.push({ type: "frozen", untilTick: tick + (def.duration || 0) });
-        } else if (def.type === "atkMult") {
-          sideState.activeEffects.push({ type: "atkMult", value: def.value, untilTick: tick + (def.duration || 0) });
+        } else if (e.typ === "freezeEnemy") {
+          otherSideState.activeEffects.push({ type: "frozen", untilTick: tick + (e.czasTikow || 0) });
+        } else if (e.typ === "atkMult") {
+          sideState.activeEffects.push({ type: "atkMult", value: e.wartosc, untilTick: tick + (e.czasTikow || 0) });
+        } else if (e.typ === "instantDamage") {
+          const ftOther = frontType(otherSideState);
+          if (ftOther) {
+            otherSideState.types[ftOther].stacks = applyDamageToType(otherSideState.types[ftOther].stacks, e.wartosc);
+          }
+        } else if (e.typ === "stealGold") {
+          goldEvents.push({ from: otherSideId, to: sideId, amount: e.wartosc });
+        } else if (e.typ === "revive") {
+          const t = e.jednostka;
+          const stats = effectiveUnitStats(playersData[sideId], t);
+          sideState.types[t].stacks.push({ owner: sideId, count: 1, atk: stats.atk, perHp: stats.hp, curHp: stats.hp });
         }
       }
       c.used = true;
@@ -472,9 +485,10 @@ function computeNextTick(fight, attackerId, defenderId) {
   const tick = next.tick + 1;
   const A = next.sides[attackerId];
   const D = next.sides[defenderId];
+  const goldEvents = [];
 
-  processBroughtCards(A, D, tick);
-  processBroughtCards(D, A, tick);
+  processBroughtCards(A, D, tick, attackerId, defenderId, goldEvents);
+  processBroughtCards(D, A, tick, defenderId, attackerId, goldEvents);
 
   [A, D].forEach((s) => { s.activeEffects = s.activeEffects.filter((e) => e.untilTick > tick); });
 
@@ -495,7 +509,7 @@ function computeNextTick(fight, attackerId, defenderId) {
   else if (!dAlive) next.winnerId = attackerId;
   else if (!aAlive) next.winnerId = defenderId;
 
-  return next;
+  return { fight: next, goldEvents };
 }
 
 function startTickLoopIfAttacker() {
@@ -508,7 +522,18 @@ function stopTickLoop() {
 }
 async function doTick() {
   if (!battle || battle.status !== "fighting") { stopTickLoop(); return; }
-  const next = computeNextTick(battle.fight, battle.attackerId, battle.defenderId);
+  const result = computeNextTick(battle.fight, battle.attackerId, battle.defenderId);
+  const next = result.fight;
+
+  if (result.goldEvents.length > 0) {
+    const batch = db.batch();
+    result.goldEvents.forEach((ev) => {
+      batch.update(db.collection("players").doc(ev.from), { gold: firebase.firestore.FieldValue.increment(-ev.amount) });
+      batch.update(db.collection("players").doc(ev.to), { gold: firebase.firestore.FieldValue.increment(ev.amount) });
+    });
+    await batch.commit();
+  }
+
   if (next.winnerId) {
     stopTickLoop();
     await db.collection("battle").doc("current").update({ fight: next, status: "finished" });
