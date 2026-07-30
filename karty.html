@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Baza kart — Tablica Graczy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="karty.js"></script>
+
+<style>
+  :root{
+    --bg: #14161c;
+    --bg-panel: #1e212b;
+    --bg-panel-raised: #262a36;
+    --line: #333748;
+    --text: #edeef2;
+    --text-dim: #9098a8;
+    --text-faint: #5b6172;
+    --atak: #e8583d;
+    --obrona: #4a9de0;
+    --gold: #f5c451;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; min-height:100vh; background: var(--bg); color: var(--text);
+    font-family: var(--font-body); display:flex; justify-content:center;
+    padding: 24px 16px 48px;
+  }
+  #app{ width:100%; max-width: 620px; }
+  .eyebrow{
+    font-family: var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+    font-size: 12px; color: var(--text-dim); margin: 0 0 6px;
+  }
+  h1{ font-family: var(--font-display); font-weight: 600; font-size: 27px; margin: 0 0 4px; }
+  .sub{ color: var(--text-dim); font-size: 14px; margin: 0 0 30px; line-height:1.5; }
+
+  .group{ margin-bottom: 30px; }
+  .group h2{
+    font-family: var(--font-display); font-size:16px; font-weight:600;
+    margin: 0 0 12px; padding-bottom:8px; border-bottom: 1px solid var(--line);
+  }
+  .group.ekonomia h2{ color: var(--gold); }
+  .group.wojsko h2{ color: var(--obrona); }
+  .group.specjalna-gra h2{ color: #4caf7d; }
+  .group.specjalna-walka h2{ color: var(--atak); }
+
+  .card-row{
+    display:flex; gap:14px; align-items:flex-start;
+    background: var(--bg-panel); border:1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .card-code{
+    font-family: var(--font-display); font-size:16px; font-weight:600;
+    color: var(--text-faint); min-width:38px; flex-shrink:0;
+  }
+  .card-body{ flex:1; min-width:0; }
+  .card-name{ font-weight:600; font-size:14.5px; margin-bottom:2px; }
+  .card-desc{ color: var(--text-dim); font-size:13px; line-height:1.4; }
+  .empty{ color: var(--text-faint); font-style:italic; font-size:13.5px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <p class="eyebrow">Karty</p>
+  <h1>Baza kart</h1>
+  <p class="sub">Podgląd wszystkich kart zdefiniowanych w pliku <code>karty.js</code> — kody, nazwy i efekty. Ta strona tylko odczytuje ten plik, nie łączy się z żadną bazą danych online.</p>
+  <div id="sections"></div>
+</div>
+
+<script>
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+const GROUPS = [
+  { css: "ekonomia",        title: "💰 Karty ekonomii — dodawane w Panelu Gry",              test: (c) => c.kategoria === "ekonomia" },
+  { css: "wojsko",          title: "🪖 Karty wojska — dodawane w Panelu Gry",                 test: (c) => c.kategoria === "wojsko" },
+  { css: "specjalna-gra",   title: "🎴 Karty specjalne — użycie w Panelu Gry",                test: (c) => c.kategoria === "specjalna" && c.uzycie === "gra" },
+  { css: "specjalna-walka", title: "⚔️ Karty specjalne — użycie w Walce",                     test: (c) => c.kategoria === "specjalna" && c.uzycie === "walka" }
+];
+
+const wrap = document.getElementById("sections");
+wrap.innerHTML = GROUPS.map((g) => {
+  const entries = Object.entries(KARTY).filter(([code, c]) => g.test(c)).sort((a, b) => a[0].localeCompare(b[0]));
+  return '<section class="group ' + g.css + '">' +
+    "<h2>" + g.title + "</h2>" +
+    (entries.length
+      ? entries.map(([code, c]) => (
+          '<div class="card-row">' +
+            '<div class="card-code">' + escapeHtml(code) + "</div>" +
+            '<div class="card-body">' +
+              '<div class="card-name">' + escapeHtml(c.nazwa) + "</div>" +
+              '<div class="card-desc">' + escapeHtml(c.opis || "") + "</div>" +
+            "</div>" +
+          "</div>"
+        )).join("")
+      : '<p class="empty">Brak kart w tej kategorii.</p>') +
+    "</section>";
+}).join("");
+</script>
+</body>
+</html>
