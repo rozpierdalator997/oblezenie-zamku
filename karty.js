@@ -37,6 +37,7 @@ const KARTY = {
   "201": { kategoria: "wojsko", nazwa: "Trening wojowników",   opis: "Twoi wojownicy: +10 zdrowia.", efekt: { jednostka: "wojownicy", staty: "zdrowie", wartosc: 10 } },
   "202": { kategoria: "wojsko", nazwa: "Zmęczenie łuczników",  opis: "Twoi łucznicy: -5 ataku.",     efekt: { jednostka: "lucznicy",  staty: "atak",    wartosc: -5 } },
   "203": { kategoria: "wojsko", nazwa: "Ostrzenie broni",      opis: "Twoi lancjerzy: +8 ataku.",    efekt: { jednostka: "lancjerzy", staty: "atak",    wartosc: 8 } },
+   "204": { kategoria: "wojsko", nazwa: "Zatrute ostrza",       opis: "Twoi wojownicy: -10 zdrowia.", efekt: { jednostka: "wojownicy", staty: "zdrowie", wartosc: -10 } },
 
   // ============================================================
   // KARTY SPECJALNE — UŻYCIE W PANELU GRY.
