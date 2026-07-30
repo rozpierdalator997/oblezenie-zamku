@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="wspolne.js"></script>
+<script src="karty.js"></script>
 
 <style>
   :root{
@@ -242,16 +243,9 @@
 
 <script>
 /* ============================================================
-   PRZYKŁADOWA BAZA KART — tymczasowa, do testów.
-   Docelowo zastąpi ją prawdziwy panel kart (karty.html) i baza w Firebase.
+   Baza kart żyje teraz w osobnym pliku karty.js (stała KARTY),
+   dołączonym w <head>. Nie trzeba tu nic definiować.
    ============================================================ */
-const CARD_DB = {
-  "214": { type: "ekonomia", name: "Zastrzyk złota", gold: 10 },
-  "215": { type: "ekonomia", name: "Podatek", gold: -5 },
-  "340": { type: "wojsko", name: "Trening wojowników", unit: "wojownicy", stat: "zdrowie", value: 10 },
-  "341": { type: "wojsko", name: "Osłabienie łuczników", unit: "lucznicy", stat: "atak", value: -5 },
-  "501": { type: "specjalna", name: "Przypływ mocy", unit: "lancjerzy", stat: "atak", value: 8 }
-};
 
 // Przykladowe ceny - do zmiany, gdy bedziesz mial docelowy cennik.
 const UNIT_PRICES = { wojownicy: 5, lancjerzy: 6, lucznicy: 7 };
@@ -397,28 +391,32 @@ async function addCard() {
   const raw = prompt("Podaj kod karty, którą ciągnąłeś/aś, albo kod trzymanej karty specjalnej, którą chcesz teraz zagrać:");
   if (!raw) return;
   const code = raw.trim();
-  const card = CARD_DB[code];
-  if (!card) { alert("Nieznany kod karty: " + code + "\n\n(Baza kart jest na razie przykładowa — realny panel kart dodamy w kolejnym kroku.)"); return; }
+  const card = KARTY[code];
+  if (!card) { alert("Nieznany kod karty: " + code); return; }
+  if (card.kategoria === "specjalna" && card.uzycie === "walka") {
+    alert("Ta karta jest przeznaczona do użycia w trakcie walki (wnosisz ją w przygotowaniu do walki), nie tutaj.");
+    return;
+  }
 
   const ref = db.collection("players").doc(identity.id);
 
-  if (card.type === "ekonomia") {
-    await ref.update({ gold: firebase.firestore.FieldValue.increment(card.gold) });
-    alert("Zastosowano: " + card.name + " (" + (card.gold >= 0 ? "+" : "") + card.gold + " złota)");
-  } else if (card.type === "wojsko") {
-    const path = "statMods." + card.unit + "." + card.stat;
-    await ref.update({ [path]: firebase.firestore.FieldValue.increment(card.value) });
-    alert("Zastosowano: " + card.name + " (" + UNIT_LABEL[card.unit] + " " + card.stat + " " + (card.value >= 0 ? "+" : "") + card.value + ")");
-  } else if (card.type === "specjalna") {
+  if (card.kategoria === "ekonomia") {
+    await ref.update({ gold: firebase.firestore.FieldValue.increment(card.efekt.zloto) });
+    alert("Zastosowano: " + card.nazwa + " (" + (card.efekt.zloto >= 0 ? "+" : "") + card.efekt.zloto + " złota)");
+  } else if (card.kategoria === "wojsko") {
+    const path = "statMods." + card.efekt.jednostka + "." + card.efekt.staty;
+    await ref.update({ [path]: firebase.firestore.FieldValue.increment(card.efekt.wartosc) });
+    alert("Zastosowano: " + card.nazwa + " (" + UNIT_LABEL[card.efekt.jednostka] + " " + card.efekt.staty + " " + (card.efekt.wartosc >= 0 ? "+" : "") + card.efekt.wartosc + ")");
+  } else if (card.kategoria === "specjalna" && card.uzycie === "gra") {
     const me = playersData[identity.id];
     const count = me.specialCardCount || 0;
     if (count <= 0) { alert('Nie masz żadnych kart specjalnych w ręku — najpierw kup przynajmniej jedną przez "🛒 Zakupy".'); return; }
-    const path = "statMods." + card.unit + "." + card.stat;
+    const path = "statMods." + card.efekt.jednostka + "." + card.efekt.staty;
     await ref.update({
-      [path]: firebase.firestore.FieldValue.increment(card.value),
+      [path]: firebase.firestore.FieldValue.increment(card.efekt.wartosc),
       specialCardCount: firebase.firestore.FieldValue.increment(-1)
     });
-    alert("Zagrano kartę specjalną: " + card.name + " (" + UNIT_LABEL[card.unit] + " " + card.stat + " " + (card.value >= 0 ? "+" : "") + card.value + "). Liczba kart w ręku spadła o 1.");
+    alert("Zagrano kartę specjalną: " + card.nazwa + " (" + UNIT_LABEL[card.efekt.jednostka] + " " + card.efekt.staty + " " + (card.efekt.wartosc >= 0 ? "+" : "") + card.efekt.wartosc + "). Liczba kart w ręku spadła o 1.");
   }
 }
 
