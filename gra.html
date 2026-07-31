@@ -271,7 +271,7 @@ function attackTypeLabel(type) {
 }
 
 /* ---------- ochrona dostepu: jesli stan gry nie pasuje, wracamy do lobby ---------- */
-function checkAccessAnd() {
+function checkAccessAndRender() {
   if (!isConfigured || navigating) return;
   if (!gameStateLoaded || !playersLoaded) return; // czekamy, az obie paczki danych sie zaladuja
   if (!gameState.lobbyOpened || !gameState.started) { navigating = true; window.location.href = "index.html"; return; }
@@ -302,7 +302,7 @@ function renderAll() {
 
   el("gold-value").textContent = (me.gold || 0);
 
-const mods = me.statMods || defaultStatMods();
+  const mods = me.statMods || defaultStatMods();
   el("unit-stats").innerHTML = Object.keys(UNIT_LABEL).map((u) => {
     const stats = effectiveUnitStats(me, u);
     return `<div class="unit-stat-row"><span class="unit-stat-name">${UNIT_LABEL[u]}</span><span class="unit-stat-mods">atak ${stats.atk} · zdrowie ${stats.hp}</span></div>`;
