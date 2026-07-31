@@ -67,7 +67,7 @@ function defaultStatMods() {
 
 /* ---------- bazowe statystyki jednostki (jednakowe dla wszystkich typow na razie) ---------- */
 /* Zmien te liczby, gdy bedziesz mial docelowy balans. */
-const BASE_UNIT_STATS = { hp: 100, atk: 20 };
+const BASE_UNIT_STATS = { hp: 100, atk: 5 };
 
 function effectiveUnitStats(playerData, unitType) {
   const mods = (playerData && playerData.statMods && playerData.statMods[unitType]) || { atak: 0, zdrowie: 0 };
