@@ -34,10 +34,10 @@ const KARTY = {
   // efekt: { jednostka: "wojownicy"|"lancjerzy"|"lucznicy",
   //          staty: "atak"|"zdrowie", wartosc: liczba }
   // ============================================================
-  "201": { kategoria: "wojsko", nazwa: "Trening wojowników",   opis: "Twoi wojownicy: +10 zdrowia.", efekt: { jednostka: "wojownicy", staty: "zdrowie", wartosc: 10 } },
-  "202": { kategoria: "wojsko", nazwa: "Zmęczenie łuczników",  opis: "Twoi łucznicy: -5 ataku.",     efekt: { jednostka: "lucznicy",  staty: "atak",    wartosc: -5 } },
-  "203": { kategoria: "wojsko", nazwa: "Ostrzenie broni",      opis: "Twoi lancjerzy: +8 ataku.",    efekt: { jednostka: "lancjerzy", staty: "atak",    wartosc: 8 } },
-   "204": { kategoria: "wojsko", nazwa: "Zatrute ostrza",       opis: "Twoi wojownicy: -10 zdrowia.", efekt: { jednostka: "wojownicy", staty: "zdrowie", wartosc: -10 } },
+  "201": { kategoria: "wojsko", nazwa: "Trening wojowników",   opis: "Twoi wojownicy: +1 zdrowia.", efekt: { jednostka: "wojownicy", staty: "zdrowie", wartosc: 1 } },
+  "202": { kategoria: "wojsko", nazwa: "Zmęczenie łuczników",  opis: "Twoi łucznicy: -0.5 ataku.",     efekt: { jednostka: "lucznicy",  staty: "atak",    wartosc: -0.5 } },
+  "203": { kategoria: "wojsko", nazwa: "Ostrzenie broni",      opis: "Twoi lancjerzy: +0.3 ataku.",    efekt: { jednostka: "lancjerzy", staty: "atak",    wartosc: 0.3 } },
+   "204": { kategoria: "wojsko", nazwa: "Zatrute ostrza",       opis: "Twoi wojownicy: -2 zdrowia.", efekt: { jednostka: "wojownicy", staty: "zdrowie", wartosc: -2 } },
 
   // ============================================================
   // KARTY SPECJALNE — UŻYCIE W PANELU GRY.
@@ -61,8 +61,8 @@ const KARTY = {
   //   stealGold     {wartosc}             — kradnie złoto z konta przeciwnika
   //   revive        {jednostka}           — przywraca do walki 1 jednostkę danego typu
   // ============================================================
-  "401": { kategoria: "specjalna", uzycie: "walka", nazwa: "Podwojenie ataku",   opis: "Twoje jednostki zadają 2x obrażeń przez 5 tików.",        efekt: { typ: "atkMult",       wartosc: 2,  czasTikow: 5 } },
-  "402": { kategoria: "specjalna", uzycie: "walka", nazwa: "Zamrożenie czasu",   opis: "Wrogie jednostki nie zadają obrażeń przez 3 tiki.",        efekt: { typ: "freezeEnemy",   czasTikow: 3 } },
+  "401": { kategoria: "specjalna", uzycie: "walka", nazwa: "Podwojenie ataku",   opis: "Twoje jednostki zadają 2x obrażeń przez 10 tików.",        efekt: { typ: "atkMult",       wartosc: 2,  czasTikow: 10 } },
+  "402": { kategoria: "specjalna", uzycie: "walka", nazwa: "Zamrożenie czasu",   opis: "Wrogie jednostki nie zadają obrażeń przez 10 tiki.",        efekt: { typ: "freezeEnemy",   czasTikow: 10 } },
   "403": { kategoria: "specjalna", uzycie: "walka", nazwa: "Uzdrowienie",       opis: "Przywraca 50 PŻ aktualnie walczącej jednostce.",           efekt: { typ: "heal",          wartosc: 50 } },
   "404": { kategoria: "specjalna", uzycie: "walka", nazwa: "Zasadzka",          opis: "Zadaje wrogowi natychmiast 60 dodatkowych obrażeń.",       efekt: { typ: "instantDamage", wartosc: 60 } },
   "405": { kategoria: "specjalna", uzycie: "walka", nazwa: "Kieszonkowiec",     opis: "Kradniesz 15 złota przeciwnikowi.",                        efekt: { typ: "stealGold",     wartosc: 15 } },
