@@ -338,7 +338,7 @@ function renderAttackSection(me, round) {
     html += `<button class="ghost-btn" id="cancel-attack-btn">Anuluj</button>`;
   } else {
     if (round > 10 && !gameState.mainGateOpen) html += `<button class="attack-btn" data-type="brama_glowna">⚔️ Atak na główną bramę</button>`;
-    if (round > 10 && !gameState.rearGateOpen) html += `<button class="attack-btn" data-type="brama_tylna">⚔️ Atak na tylne wejście</button>`;
+    if (!gameState.rearGateOpen) html += `<button class="attack-btn" id="rear-gate-btn" style="background:rgba(74,157,224,.12);border-color:var(--obrona);color:#bcdcfb;">🚪 Otwórz tylnią bramę</button>`;
     html += `<button class="attack-btn" data-type="zwykly">⚔️ Zwykły atak na wojska</button>`;
   }
 
@@ -349,7 +349,9 @@ function renderAttackSection(me, round) {
     const cancelBtn = document.getElementById("cancel-attack-btn");
     if (cancelBtn) cancelBtn.addEventListener("click", () => { pendingAttackType = null; renderAll(); });
   } else {
-    wrap.querySelectorAll(".attack-btn").forEach(btn => btn.addEventListener("click", () => { pendingAttackType = btn.dataset.type; renderAll(); }));
+    wrap.querySelectorAll(".attack-btn[data-type]").forEach(btn => btn.addEventListener("click", () => { pendingAttackType = btn.dataset.type; renderAll(); }));
+    const rearBtn = document.getElementById("rear-gate-btn");
+    if (rearBtn) rearBtn.addEventListener("click", () => { window.location.href = "tylnia-brama.html"; });
   }
 }
 
