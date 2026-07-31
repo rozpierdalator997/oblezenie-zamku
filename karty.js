@@ -24,7 +24,7 @@ const KARTY = {
   // Ciągnięte i używane w Panelu Gry (przycisk "➕ Dodaj kartę").
   // efekt: { zloto: liczba }  (dodatnia = zysk, ujemna = strata)
   // ============================================================
-  "101": { kategoria: "ekonomia", nazwa: "Zastrzyk złota",  opis: "Zyskujesz 10 złota.",  efekt: { zloto: 10 } },
+  "101": { kategoria: "ekonomia", nazwa: "Zastrzyk złota",  opis: "Zyskujesz 100 złota.",  efekt: { zloto: 100 } },
   "102": { kategoria: "ekonomia", nazwa: "Podatek",         opis: "Tracisz 5 złota.",     efekt: { zloto: -5 } },
   "103": { kategoria: "ekonomia", nazwa: "Łupy wojenne",    opis: "Zyskujesz 20 złota.",  efekt: { zloto: 20 } },
 
