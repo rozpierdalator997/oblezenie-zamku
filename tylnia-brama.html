@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Tylnia brama — Tablica Graczy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="wspolne.js"></script>
+
+<style>
+  :root{
+    --bg: #14161c;
+    --bg-panel: #1e212b;
+    --bg-panel-raised: #262a36;
+    --line: #333748;
+    --text: #edeef2;
+    --text-dim: #9098a8;
+    --text-faint: #5b6172;
+    --atak: #e8583d;
+    --obrona: #4a9de0;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body{
+    margin:0; min-height:100vh; background: var(--bg); color: var(--text);
+    font-family: var(--font-body); display:flex; justify-content:center;
+    padding: 24px 16px 48px;
+  }
+  #app{ width:100%; max-width: 460px; }
+  button{ cursor:pointer; font-family: inherit; }
+  button:focus-visible{ outline: 2px solid var(--text); outline-offset: 2px; }
+  .hidden{ display:none !important; }
+
+  .eyebrow{
+    font-family: var(--font-display); letter-spacing: .12em; text-transform: uppercase;
+    font-size: 12px; color: var(--obrona); margin: 0 0 6px;
+  }
+  h1{ font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0 0 4px; }
+  .sub{ color: var(--text-dim); font-size: 14px; margin: 0 0 22px; line-height:1.5; }
+
+  .progress-label{ font-size:13px; color: var(--text-dim); text-align:center; margin-bottom:16px; }
+
+  .grid{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;
+  }
+  .card{
+    aspect-ratio: 1; border-radius: var(--radius-sm); border:1px solid var(--line);
+    background: var(--bg-panel); display:flex; align-items:center; justify-content:center;
+    font-size:26px; transition: transform .25s ease, background .25s ease;
+  }
+  .card.flippable{ background: var(--bg-panel-raised); }
+  .card.flippable:active{ transform: scale(0.94); }
+  .card.revealed{ background: var(--bg-panel-raised); border-color: var(--obrona); }
+  .card.matched{ background: rgba(76,175,125,.12); border-color:#4caf7d; opacity:.85; }
+  .card.disabled{ cursor:default; }
+
+  .status-card{
+    background: var(--bg-panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; text-align:center; margin-bottom:18px;
+  }
+  .status-card.win{ border-color:#4caf7d; }
+  .status-card.lose{ border-color: var(--atak); }
+  .status-title{ font-family: var(--font-display); font-size:19px; font-weight:600; margin-bottom:6px; }
+
+  .big-btn{
+    display:block; width:100%; margin-top:8px;
+    background: linear-gradient(135deg, var(--atak), var(--obrona));
+    color:#fff; border:none; border-radius: var(--radius);
+    padding: 16px; font-family: var(--font-display); font-size:15.5px;
+    font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+  }
+  .ghost-btn{
+    display:block; width:100%; background: transparent; border: 1px solid var(--line);
+    color: var(--text-dim); border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 13.5px; font-weight:500; margin-top:10px; text-align:center;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <p class="eyebrow">⚔️ Atakujący</p>
+  <h1>Tylnia brama</h1>
+  <p class="sub">Znajdź wszystkie pary, żeby otworzyć tylnie wejście. Jedna pomyłka kończy próbę do następnej tury — dopasowane pary zostają odkryte na stałe.</p>
+
+  <div id="already-open" class="hidden">
+    <div class="status-card win">
+      <div class="status-title">🎉 Tylnia brama jest już otwarta!</div>
+      <p class="sub" style="margin:0;">Nie ma już czego szukać — możesz wrócić do gry.</p>
+    </div>
+    <button class="big-btn" id="return-btn-1">Wróć do gry</button>
+  </div>
+
+  <div id="already-used" class="hidden">
+    <div class="status-card">
+      <div class="status-title">⏳ Próba na tę turę już wykorzystana</div>
+      <p class="sub" style="margin:0;">Spróbuj ponownie w swojej kolejnej turze.</p>
+    </div>
+    <button class="big-btn" id="return-btn-2">Wróć do gry</button>
+  </div>
+
+  <div id="play-area" class="hidden">
+    <p class="progress-label" id="progress-label"></p>
+    <div class="grid" id="grid"></div>
+
+    <div id="result-lose" class="hidden">
+      <div class="status-card lose">
+        <div class="status-title">❌ Niedopasowane</div>
+        <p class="sub" style="margin:0;">Spróbuj ponownie w swojej następnej turze.</p>
+      </div>
+      <button class="big-btn" id="return-btn-3">Wróć do gry</button>
+    </div>
+
+    <div id="result-win" class="hidden">
+      <div class="status-card win">
+        <div class="status-title">🎉 Brama otwarta!</div>
+        <p class="sub" style="margin:0;">Wszystkie pary znalezione — tylnie wejście jest teraz otwarte dla atakujących.</p>
+      </div>
+      <button class="big-btn" id="return-btn-4">Wróć do gry</button>
+    </div>
+
+    <button class="ghost-btn" id="give-up-btn">← Wróć do gry</button>
+  </div>
+
+</div>
+
+<script>
+/* Liczba par - zmien te jedna linijke, jesli 12 kart okaze sie za dlugie/za krotkie do rozwiazania. */
+const MEMORY_PAIRS_COUNT = 6;
+const MEMORY_SYMBOLS_POOL = ["⚔️", "🛡️", "🏹", "👑", "💰", "🔥", "🏰", "🐴", "🪓", "💀", "🔔", "🗝️"];
+
+document.title = GAME_TITLE;
+const el = (id) => document.getElementById(id);
+
+let gameState = { lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0, mainGateOpen: false, rearGateOpen: false };
+let playersData = {};
+let gameStateLoaded = false;
+let playersLoaded = false;
+let identity = getMyIdentity();
+let navigating = false;
+
+let flipped = [];      // lokalne, aktualnie odkryte (nie dopasowane jeszcze) indeksy w tej probie
+let busy = false;       // blokada klikania podczas krotkiej pauzy po odkryciu 2 kart
+let sessionOver = false; // czy ta proba (na te ture) juz sie zakonczyla (przegrana lub wygrana)
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildLayout() {
+  const symbols = MEMORY_SYMBOLS_POOL.slice(0, MEMORY_PAIRS_COUNT);
+  const deck = shuffle(symbols.concat(symbols));
+  const matched = {};
+  deck.forEach((_, i) => { matched[String(i)] = false; });
+  return { symbols: deck, matched, lastAttemptTurn: -1 };
+}
+
+function route() {
+  if (!isConfigured || navigating) return;
+  if (!gameStateLoaded || !playersLoaded) return;
+  if (!gameState.lobbyOpened || !gameState.started) { navigating = true; window.location.href = "index.html"; return; }
+  if (!identity.id || !playersData[identity.id]) { navigating = true; window.location.href = "index.html"; return; }
+
+  const me = playersData[identity.id];
+  if (me.team !== "atak") { navigating = true; window.location.href = "gra.html"; return; }
+
+  if (sessionOver === "win") {
+    show("play-area");
+    renderGrid();
+    return;
+  }
+
+  if (gameState.rearGateOpen) {
+    show("already-open");
+    return;
+  }
+
+  if (!gameState.rearGateMemory) {
+    initLayoutIfNeeded();
+    return; // poczekaj na snapshot po zapisie
+  }
+
+  const memory = gameState.rearGateMemory;
+  const usedThisTurn = memory.lastAttemptTurn === gameState.turnCounter;
+  if (usedThisTurn && !sessionOver && flipped.length === 0) {
+    // swiezy wczyt strony, a ta tura juz zostala wykorzystana wczesniej
+    show("already-used");
+    return;
+  }
+
+  show("play-area");
+  renderGrid();
+}
+
+function show(which) {
+  ["already-open", "already-used", "play-area"].forEach((id) => el(id).classList.toggle("hidden", id !== which));
+}
+
+let layoutInitInFlight = false;
+async function initLayoutIfNeeded() {
+  if (layoutInitInFlight) return;
+  layoutInitInFlight = true;
+  await db.collection("game").doc("state").set({ rearGateMemory: buildLayout() }, { merge: true });
+}
+
+function renderGrid() {
+  const memory = gameState.rearGateMemory;
+  const total = memory.symbols.length;
+  const matchedCount = Object.values(memory.matched).filter(Boolean).length;
+  el("progress-label").textContent = "Odkryte pary: " + (matchedCount / 2) + " / " + (total / 2);
+
+  const grid = el("grid");
+  grid.innerHTML = "";
+  for (let i = 0; i < total; i++) {
+    const isMatched = !!memory.matched[String(i)];
+    const isFlipped = flipped.includes(i);
+    const card = document.createElement("button");
+    card.className = "card" + (isMatched ? " matched" : isFlipped ? " revealed" : " flippable") + (sessionOver ? " disabled" : "");
+    card.disabled = isMatched || sessionOver || busy || (flipped.length >= 2);
+    card.textContent = (isMatched || isFlipped) ? memory.symbols[i] : "❓";
+    if (!card.disabled && !isMatched && !isFlipped) {
+      card.addEventListener("click", () => flipCard(i));
+    }
+    grid.appendChild(card);
+  }
+
+  el("result-lose").classList.add("hidden");
+  el("result-win").classList.add("hidden");
+
+  if (sessionOver === "lose") el("result-lose").classList.remove("hidden");
+  if (sessionOver === "win") el("result-win").classList.remove("hidden");
+}
+
+async function flipCard(i) {
+  if (busy || sessionOver) return;
+  const memory = gameState.rearGateMemory;
+  if (!memory || memory.matched[String(i)] || flipped.includes(i) || flipped.length >= 2) return;
+
+  flipped.push(i);
+  renderGrid();
+
+  if (flipped.length === 2) {
+    busy = true;
+    const [a, b] = flipped;
+    const isMatch = memory.symbols[a] === memory.symbols[b];
+
+    if (isMatch) {
+      setTimeout(async () => {
+        const matchedCountAfter = Object.values(memory.matched).filter(Boolean).length + 2;
+        const totalCards = memory.symbols.length;
+        const updates = {};
+        updates["rearGateMemory.matched." + a] = true;
+        updates["rearGateMemory.matched." + b] = true;
+        if (matchedCountAfter >= totalCards) {
+          updates["rearGateMemory.lastAttemptTurn"] = gameState.turnCounter;
+          updates["rearGateOpen"] = true;
+        }
+        await db.collection("game").doc("state").update(updates);
+        flipped = [];
+        busy = false;
+        if (matchedCountAfter >= totalCards) sessionOver = "win";
+        renderGrid();
+      }, 700);
+    } else {
+      setTimeout(async () => {
+        await db.collection("game").doc("state").update({
+          "rearGateMemory.lastAttemptTurn": gameState.turnCounter
+        });
+        flipped = [];
+        busy = false;
+        sessionOver = "lose";
+        renderGrid();
+      }, 1100);
+    }
+  }
+}
+
+function returnToGame() {
+  window.location.href = "gra.html";
+}
+
+if (isConfigured) {
+  db.collection("game").doc("state").onSnapshot((doc) => {
+    gameState = doc.exists ? Object.assign({ lobbyOpened: false, started: false, turnOrder: [], turnCounter: 0, mainGateOpen: false, rearGateOpen: false }, doc.data()) : gameState;
+    gameStateLoaded = true;
+    route();
+  }, (err) => { console.error("Błąd połączenia (game/state):", err); });
+
+  db.collection("players").onSnapshot((snap) => {
+    playersData = {};
+    snap.forEach((doc) => { playersData[doc.id] = doc.data(); });
+    playersLoaded = true;
+    route();
+  }, (err) => { console.error("Błąd połączenia (players):", err); });
+
+  el("return-btn-1").addEventListener("click", returnToGame);
+  el("return-btn-2").addEventListener("click", returnToGame);
+  el("return-btn-3").addEventListener("click", returnToGame);
+  el("return-btn-4").addEventListener("click", returnToGame);
+  el("give-up-btn").addEventListener("click", returnToGame);
+} else {
+  document.body.innerHTML = '<p style="color:#f3c9c0;padding:40px;text-align:center;">Brak konfiguracji Firebase w wspolne.js</p>';
+}
+</script>
+</body>
+</html>
