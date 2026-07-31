@@ -100,6 +100,22 @@
   .unit-stat-mods{ color: var(--text); font-variant-numeric: tabular-nums; }
   .unit-stat-mods .zero{ color: var(--text-faint); }
 
+  .section-label{
+    font-family: var(--font-display); font-size:13px; text-transform:uppercase;
+    letter-spacing:.06em; color: var(--text-dim); margin:0 0 10px;
+  }
+  .gate-status-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:7px 0; border-top:1px solid var(--line); font-size:13.5px;
+  }
+  .gate-status-row:first-of-type{ border-top:none; }
+  .gate-badge{
+    font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:999px;
+    text-transform:uppercase; letter-spacing:.03em;
+  }
+  .gate-badge.closed{ background: rgba(232,88,61,.15); color:#ffb3a3; }
+  .gate-badge.open{ background: rgba(76,175,125,.15); color:#8fe0b8; }
+
   /* ---------- karty specjalne ---------- */
   .special-hand{ margin-bottom:18px; }
   .special-hand h3{
@@ -211,6 +227,12 @@
     <div id="unit-stats"></div>
   </div>
 
+  <div class="stat-card">
+    <h3 class="section-label">Stan bram</h3>
+    <div class="gate-status-row"><span>Główna brama</span><span class="gate-badge" id="main-gate-status">—</span></div>
+    <div class="gate-status-row"><span>Tylnia brama</span><span class="gate-badge" id="rear-gate-status">—</span></div>
+  </div>
+
   <div class="special-hand">
     <h3>🎴 Twoje karty specjalne (<span id="hand-count">0</span>/6)</h3>
     <button class="ghost-btn" id="discard-special-btn">Odrzuć jedną kartę</button>
@@ -266,6 +288,12 @@ let navigating = false; // zabezpieczenie przed wielokrotnym przekierowaniem z t
 
 function playersByTeam(team) { return playersByTeamFrom(playersData, team); }
 
+function setGateBadge(id, isOpen) {
+  const elm = el(id);
+  elm.textContent = isOpen ? "Otwarta" : "Zamknięta";
+  elm.className = "gate-badge " + (isOpen ? "open" : "closed");
+}
+
 function attackTypeLabel(type) {
   return type === "brama_glowna" ? "główna brama" : type === "brama_tylna" ? "tylne wejście" : "zwykły atak";
 }
@@ -301,6 +329,9 @@ function renderAll() {
   el("round-label").textContent = "Runda " + round + " / 50" + (round <= 10 ? " · faza budowy (bez szturmu na bramy)" : "");
 
   el("gold-value").textContent = (me.gold || 0);
+
+  setGateBadge("main-gate-status", gameState.mainGateOpen);
+  setGateBadge("rear-gate-status", gameState.rearGateOpen);
 
   const mods = me.statMods || defaultStatMods();
   el("unit-stats").innerHTML = Object.keys(UNIT_LABEL).map((u) => {
