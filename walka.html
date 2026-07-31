@@ -134,6 +134,16 @@
   .battle-card-btn:hover{ background: rgba(232,88,61,.22); }
   .battle-card-btn.used{ opacity:.35; border-color: var(--line); color: var(--text-faint); background:none; }
   .bc-status{ display:block; font-size:10.5px; font-weight:400; margin-top:3px; }
+
+  /* ---------- log wydarzen (uzyte karty specjalne) ---------- */
+  .battle-events{ display:flex; flex-direction:column; gap:6px; margin: 10px 0; }
+  .battle-event{
+    background: var(--bg-panel); border:1px solid var(--line); border-left:3px solid #f5c451;
+    border-radius: var(--radius-sm); padding:8px 12px; font-size:12.5px; color: var(--text-dim);
+    animation: eventIn .3s ease;
+  }
+  .battle-event strong{ color: var(--text); }
+  @keyframes eventIn{ from{ opacity:0; transform: translateY(-4px); } to{ opacity:1; transform:none; } }
 </style>
 </head>
 <body>
@@ -187,6 +197,7 @@
       <div class="clash-line"></div>
       <div id="my-rows"></div>
     </div>
+    <div class="battle-events" id="battle-events"></div>
     <p class="round-label" id="opp-cards-hint"></p>
     <div class="cards-bar" id="my-cards-bar"></div>
   </section>
@@ -441,7 +452,7 @@ function applyDamageToType(stacks, damage) {
   return result;
 }
 
-function processBroughtCards(sideState, otherSideState, tick, sideId, otherSideId, goldEvents) {
+function processBroughtCards(sideState, otherSideState, tick, sideId, otherSideId, goldEvents, cardEvents) {
   Object.keys(sideState.broughtCards).forEach((code) => {
     const c = sideState.broughtCards[code];
     if (c.requested && !c.used) {
@@ -473,6 +484,8 @@ function processBroughtCards(sideState, otherSideState, tick, sideId, otherSideI
           const stats = effectiveUnitStats(playersData[sideId], t);
           sideState.types[t].stacks.push({ owner: sideId, count: 1, atk: stats.atk, perHp: stats.hp, curHp: stats.hp });
         }
+        const playerName = (playersData[sideId] && playersData[sideId].name) || "Gracz";
+        cardEvents.push(playerName + " użył karty specjalnej: " + def.opis);
       }
       c.used = true;
       c.requested = false;
@@ -486,9 +499,10 @@ function computeNextTick(fight, attackerId, defenderId) {
   const A = next.sides[attackerId];
   const D = next.sides[defenderId];
   const goldEvents = [];
+  const cardEvents = [];
 
-  processBroughtCards(A, D, tick, attackerId, defenderId, goldEvents);
-  processBroughtCards(D, A, tick, defenderId, attackerId, goldEvents);
+  processBroughtCards(A, D, tick, attackerId, defenderId, goldEvents, cardEvents);
+  processBroughtCards(D, A, tick, defenderId, attackerId, goldEvents, cardEvents);
 
   [A, D].forEach((s) => { s.activeEffects = s.activeEffects.filter((e) => e.untilTick > tick); });
 
@@ -502,6 +516,7 @@ function computeNextTick(fight, attackerId, defenderId) {
 
   next.tick = tick;
   next.log = (next.log || []).concat(["Tik " + tick + ": " + Math.round(dmgA) + " / " + Math.round(dmgD) + " obrażeń"]).slice(-20);
+  next.events = (next.events || []).concat(cardEvents).slice(-8);
 
   const aAlive = sideHasUnits(A);
   const dAlive = sideHasUnits(D);
@@ -582,6 +597,9 @@ function renderFighting() {
 
   renderSideRows("enemy-rows", opp, [...UNIT_ORDER].reverse());
   renderSideRows("my-rows", me, UNIT_ORDER);
+
+  const events = f.events || [];
+  el("battle-events").innerHTML = events.map((msg) => '<div class="battle-event">' + escapeHtml(msg) + "</div>").join("");
 
   const codes = Object.keys(me.broughtCards || {});
   const wrap = el("my-cards-bar");
