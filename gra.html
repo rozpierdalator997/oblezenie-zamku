@@ -271,7 +271,7 @@ function attackTypeLabel(type) {
 }
 
 /* ---------- ochrona dostepu: jesli stan gry nie pasuje, wracamy do lobby ---------- */
-function checkAccessAndRender() {
+function checkAccessAnd() {
   if (!isConfigured || navigating) return;
   if (!gameStateLoaded || !playersLoaded) return; // czekamy, az obie paczki danych sie zaladuja
   if (!gameState.lobbyOpened || !gameState.started) { navigating = true; window.location.href = "index.html"; return; }
@@ -302,12 +302,10 @@ function renderAll() {
 
   el("gold-value").textContent = (me.gold || 0);
 
-  const mods = me.statMods || defaultStatMods();
+const mods = me.statMods || defaultStatMods();
   el("unit-stats").innerHTML = Object.keys(UNIT_LABEL).map((u) => {
-    const a = (mods[u] && mods[u].atak) || 0;
-    const z = (mods[u] && mods[u].zdrowie) || 0;
-    const fmt = (n) => n === 0 ? '<span class="zero">0</span>' : (n > 0 ? "+" + n : n);
-    return `<div class="unit-stat-row"><span class="unit-stat-name">${UNIT_LABEL[u]}</span><span class="unit-stat-mods">atak ${fmt(a)} · zdrowie ${fmt(z)}</span></div>`;
+    const stats = effectiveUnitStats(me, u);
+    return `<div class="unit-stat-row"><span class="unit-stat-name">${UNIT_LABEL[u]}</span><span class="unit-stat-mods">atak ${stats.atk} · zdrowie ${stats.hp}</span></div>`;
   }).join("");
 
   const specialCount = me.specialCardCount || 0;
